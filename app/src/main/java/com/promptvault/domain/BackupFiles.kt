@@ -3,6 +3,9 @@ package com.promptvault.domain
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
 
 object BackupFiles {
     private val json = Json {
@@ -58,8 +61,9 @@ object BackupFiles {
     fun encode(payload: Payload): String = json.encodeToString(payload)
 
     fun decode(text: String): Payload? = runCatching {
-        val payload = json.decodeFromString<Payload>(text)
-        if (payload.format != "promptvault-backup") return null
-        payload
+        val element = json.parseToJsonElement(text)
+        val format = (element as? JsonObject)?.get("format") as? JsonPrimitive ?: return null
+        if (format.content != "promptvault-backup") return null
+        json.decodeFromJsonElement<Payload>(element)
     }.getOrNull()
 }

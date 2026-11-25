@@ -1,4 +1,12 @@
 package com.promptvault.ui.screens
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Undo
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement

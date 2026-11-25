@@ -1,4 +1,8 @@
 package com.promptvault.ui.screens
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Folder
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column

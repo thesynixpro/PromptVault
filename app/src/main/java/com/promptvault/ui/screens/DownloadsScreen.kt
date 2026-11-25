@@ -1,4 +1,8 @@
 package com.promptvault.ui.screens
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.OpenInNew
 
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult

@@ -75,7 +75,7 @@ class SyncWorker(
                     task.targetMessageId ?: item?.telegramMessageId,
                     container
                 )
-                tempFile != null -> container.telegram.sendDocument(
+                item != null && tempFile != null -> container.telegram.sendDocument(
                     tempFile,
                     BackupFormatter.caption(item)
                 )
