@@ -32,11 +32,15 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+
+      - name: Accept Android SDK Licenses
+        run: yes | sdkmanager --licenses > /dev/null
 
       - name: Install Android SDK Components
-        run: |
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Grant Gradle Permission
         run: chmod +x gradlew
