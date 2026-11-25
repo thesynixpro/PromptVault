@@ -1,0 +1,81 @@
+name: PromptVault Android APK Build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promptvault-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK Components
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Grant Gradle Permission
+        run: chmod +x gradlew
+
+      - name: Run Unit Tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Build Debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Verify APK
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Prepare Release Metadata
+        run: echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PromptVault-Debug-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: PromptVault v1.0.${{ github.run_number }}
+          body: |
+            PromptVault Android Debug APK
+
+            Application: PromptVault
+            Version: 1.0 (${{ github.run_number }})
+            Commit: ${{ github.sha }}
+            Build number: ${{ github.run_number }}
+            Build date: ${{ env.BUILD_DATE }}
+
+            Local-first prompt, text, and code snippet manager with optional Telegram cloud backup.
+          files: app/build/outputs/apk/debug/app-debug.apk
+          make_latest: true
