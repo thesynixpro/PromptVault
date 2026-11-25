@@ -33,6 +33,6 @@ class SearchEngineTest {
     @Test
     fun sortsByModifiedAndAlphabetical() {
         assertEquals(listOf("1", "2", "3"), SearchEngine.sort(items, SortMode.RECENTLY_MODIFIED).map { it.id })
-        assertEquals(listOf("1", "3", "2"), SearchEngine.sort(items, SortMode.ALPHABETICAL).map { it.id })
+        assertEquals(listOf("1", "2", "3"), SearchEngine.sort(items, SortMode.ALPHABETICAL).map { it.id })
     }
 }

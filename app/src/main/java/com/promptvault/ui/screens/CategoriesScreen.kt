@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.Add
-import androidx.compose.material.icons.Default.Category
-import androidx.compose.material.icons.Default.Delete
-import androidx.compose.material.icons.Default.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
@@ -68,7 +64,7 @@ fun CategoriesScreen(onBack: () -> Unit) {
         topBar = { AppTopBar("Categories", onBack = onBack) },
         floatingActionButton = {
             FloatingActionButton(onClick = { openEditor(null) }) {
-                Icon(Icons.Default.Add, "New category")
+                Icon(Icons.Filled.Add, "New category")
             }
         }
     ) { padding ->
@@ -83,7 +79,7 @@ fun CategoriesScreen(onBack: () -> Unit) {
                     EmptyState(
                         "No categories yet",
                         "Create categories to group prompts, text, and code.",
-                        Icons.Default.Category
+                        Icons.Filled.Category
                     )
                 }
             }
@@ -97,13 +93,13 @@ fun CategoriesScreen(onBack: () -> Unit) {
                     )
                 ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Icon(Icons.Default.Category, null, tint = Color(category.color))
+                        Icon(Icons.Filled.Category, null, tint = Color(category.color))
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                             Text(category.name, style = MaterialTheme.typography.titleMedium)
                             Text("Created ${com.promptvault.ui.components.formatDate(category.createdAt)}", style = MaterialTheme.typography.labelSmall)
                         }
-                        IconButton(onClick = { openEditor(category) }) { Icon(Icons.Default.Edit, "Edit") }
-                        IconButton(onClick = { deleting = category }) { Icon(Icons.Default.Delete, "Delete") }
+                        IconButton(onClick = { openEditor(category) }) { Icon(Icons.Filled.Edit, "Edit") }
+                        IconButton(onClick = { deleting = category }) { Icon(Icons.Filled.Delete, "Delete") }
                     }
                 }
             }

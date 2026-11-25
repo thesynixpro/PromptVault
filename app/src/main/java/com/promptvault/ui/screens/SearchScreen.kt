@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.Close
-import androidx.compose.material.icons.Default.Delete
-import androidx.compose.material.icons.Default.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -34,6 +31,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.promptvault.domain.ItemFilter
 import com.promptvault.domain.PromptItem
@@ -100,11 +98,11 @@ fun SearchScreen(
                     onValueChange = viewModel::onQueryChange,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     placeholder = { Text("Search titles, content, tags, categories…") },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
                     trailingIcon = {
                         if (state.query.isNotEmpty()) {
                             IconButton(onClick = { viewModel.onQueryChange("") }) {
-                                Icon(Icons.Default.Close, "Clear query")
+                                Icon(Icons.Filled.Close, "Clear query")
                             }
                         }
                     },
@@ -143,7 +141,7 @@ fun SearchScreen(
                     EmptyState(
                         title = "No matches",
                         message = "Try a different word, tag, or category.",
-                        icon = Icons.Default.Search
+                        icon = Icons.Filled.Search
                     )
                 }
             }

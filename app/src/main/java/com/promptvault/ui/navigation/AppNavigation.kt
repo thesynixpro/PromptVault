@@ -6,19 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.AutoAwesome
-import androidx.compose.material.icons.Default.Category
-import androidx.compose.material.icons.Default.Cloud
-import androidx.compose.material.icons.Default.Code
-import androidx.compose.material.icons.Default.Description
-import androidx.compose.material.icons.Default.Favorite
-import androidx.compose.material.icons.Default.FileDownload
-import androidx.compose.material.icons.Default.Folder
-import androidx.compose.material.icons.Default.History
-import androidx.compose.material.icons.Default.Info
-import androidx.compose.material.icons.Default.List
-import androidx.compose.material.icons.Default.Settings
-import androidx.compose.material.icons.Default.Sync
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -87,18 +74,18 @@ object Screen {
     data class DrawerItem(val route: String, val label: String, val icon: ImageVector)
 
     val drawerItems = listOf(
-        DrawerItem(HOME, "Recent", Icons.Default.List),
-        DrawerItem(listRoute(ItemFilter.ALL), "All Prompts", Icons.Default.AutoAwesome),
-        DrawerItem(listRoute(ItemFilter.FAVORITES), "Favorites", Icons.Default.Favorite),
-        DrawerItem(CATEGORIES, "Categories", Icons.Default.Category),
-        DrawerItem(FOLDERS, "Folders", Icons.Default.Folder),
-        DrawerItem(listRoute(ItemFilter.TEXT), "Text Documents", Icons.Default.Description),
-        DrawerItem(listRoute(ItemFilter.CODE), "Code Snippets", Icons.Default.Code),
-        DrawerItem(DOWNLOADS, "Downloads", Icons.Default.FileDownload),
-        DrawerItem(TELEGRAM, "Telegram Cloud", Icons.Default.Cloud),
-        DrawerItem(SYNC, "Sync Status", Icons.Default.Sync),
-        DrawerItem(SETTINGS, "Settings", Icons.Default.Settings),
-        DrawerItem(ABOUT, "About", Icons.Default.Info)
+        DrawerItem(HOME, "Recent", Icons.Filled.List),
+        DrawerItem(listRoute(ItemFilter.ALL), "All Prompts", Icons.Filled.AutoAwesome),
+        DrawerItem(listRoute(ItemFilter.FAVORITES), "Favorites", Icons.Filled.Favorite),
+        DrawerItem(CATEGORIES, "Categories", Icons.Filled.Category),
+        DrawerItem(FOLDERS, "Folders", Icons.Filled.Folder),
+        DrawerItem(listRoute(ItemFilter.TEXT), "Text Documents", Icons.Filled.Description),
+        DrawerItem(listRoute(ItemFilter.CODE), "Code Snippets", Icons.Filled.Code),
+        DrawerItem(DOWNLOADS, "Downloads", Icons.Filled.FileDownload),
+        DrawerItem(TELEGRAM, "Telegram Cloud", Icons.Filled.Cloud),
+        DrawerItem(SYNC, "Sync Status", Icons.Filled.Sync),
+        DrawerItem(SETTINGS, "Settings", Icons.Filled.Settings),
+        DrawerItem(ABOUT, "About", Icons.Filled.Info)
     )
 }
 
@@ -153,7 +140,7 @@ fun PromptVaultNavigation() {
                 }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.History, null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.History, null, modifier = Modifier.size(18.dp))
                     Text(" Local-first • Telegram ready", style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
                 }
             }

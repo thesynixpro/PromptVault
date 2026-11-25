@@ -12,10 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.Delete
-import androidx.compose.material.icons.Default.Description
-import androidx.compose.material.icons.Default.FileDownload
-import androidx.compose.material.icons.Default.OpenInNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -117,7 +113,7 @@ fun DownloadsScreen(onBack: () -> Unit) {
                         .padding(vertical = 4.dp)
                 ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Icon(Icons.Default.Description, null)
+                        Icon(Icons.Filled.Description, null)
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                             Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                             Text(item.contentType.name, style = MaterialTheme.typography.labelSmall)
@@ -135,7 +131,7 @@ fun DownloadsScreen(onBack: () -> Unit) {
             }
             item { SectionTitle("Export history") }
             if (state.exports.isEmpty()) {
-                item { EmptyState("No exports yet", "Files you export will be listed here.", Icons.Default.FileDownload) }
+                item { EmptyState("No exports yet", "Files you export will be listed here.", Icons.Filled.FileDownload) }
             }
             items(state.exports, key = { it.id }) { record ->
                 Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -152,9 +148,9 @@ fun DownloadsScreen(onBack: () -> Unit) {
                                 }
                                 context.startActivity(intent)
                             }
-                        }) { Icon(Icons.Default.OpenInNew, "Open file") }
+                        }) { Icon(Icons.Filled.OpenInNew, "Open file") }
                         IconButton(onClick = { deleteTarget = record }) {
-                            Icon(Icons.Default.Delete, "Remove from history")
+                            Icon(Icons.Filled.Delete, "Remove from history")
                         }
                     }
                 }

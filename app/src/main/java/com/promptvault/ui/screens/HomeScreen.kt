@@ -23,17 +23,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.Add
-import androidx.compose.material.icons.Default.AutoAwesome
-import androidx.compose.material.icons.Default.CloudDone
-import androidx.compose.material.icons.Default.CloudOff
-import androidx.compose.material.icons.Default.Favorite
-import androidx.compose.material.icons.Default.Folder
-import androidx.compose.material.icons.Default.GridView
-import androidx.compose.material.icons.Default.Menu
-import androidx.compose.material.icons.Default.MoreVert
-import androidx.compose.material.icons.Default.Search
-import androidx.compose.material.icons.Default.ViewList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -124,14 +113,14 @@ fun HomeScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, "Open navigation")
+                        Icon(Icons.Filled.Menu, "Open navigation")
                     }
                 },
                 actions = {
-                    IconButton(onClick = onOpenSearch) { Icon(Icons.Default.Search, "Search") }
+                    IconButton(onClick = onOpenSearch) { Icon(Icons.Filled.Search, "Search") }
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, "More options")
+                            Icon(Icons.Filled.MoreVert, "More options")
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
@@ -141,7 +130,7 @@ fun HomeScreen(
                                 text = { Text(if (settings.viewMode == ViewMode.LIST) "Grid view" else "List view") },
                                 leadingIcon = {
                                     Icon(
-                                        if (settings.viewMode == ViewMode.LIST) Icons.Default.GridView else Icons.Default.ViewList,
+                                        if (settings.viewMode == ViewMode.LIST) Icons.Filled.GridView else Icons.Filled.ViewList,
                                         null
                                     )
                                 },
@@ -168,7 +157,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onNewContent) {
-                Icon(Icons.Default.Add, "New content")
+                Icon(Icons.Filled.Add, "New content")
             }
         }
     ) { padding ->
@@ -186,7 +175,7 @@ fun HomeScreen(
                 EmptyState(
                     title = "Your vault is ready",
                     message = "Create a prompt, text document, or code snippet to get started.",
-                    icon = Icons.Default.AutoAwesome
+                    icon = Icons.Filled.AutoAwesome
                 )
             }
         }
@@ -314,13 +303,13 @@ private fun DashboardHeader(
 ) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile("Saved items", state.stats.total.toString(), Icons.Default.AutoAwesome, Modifier.weight(1f))
-            StatTile("Folders", state.stats.folders.toString(), Icons.Default.Folder, Modifier.weight(1f))
-            StatTile("Favorites", state.stats.favorites.toString(), Icons.Default.Favorite, Modifier.weight(1f))
+            StatTile("Saved items", state.stats.total.toString(), Icons.Filled.AutoAwesome, Modifier.weight(1f))
+            StatTile("Folders", state.stats.folders.toString(), Icons.Filled.Folder, Modifier.weight(1f))
+            StatTile("Favorites", state.stats.favorites.toString(), Icons.Filled.Favorite, Modifier.weight(1f))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                if (state.telegramConnected) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                if (state.telegramConnected) Icons.Filled.CloudDone else Icons.Filled.CloudOff,
                 null,
                 tint = if (state.telegramConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )

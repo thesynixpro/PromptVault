@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.CloudDone
-import androidx.compose.material.icons.Default.CloudOff
-import androidx.compose.material.icons.Default.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -63,12 +60,12 @@ fun SyncScreen(onBack: () -> Unit) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatTile("Connected", if (state.connected) "Yes" else "No",
-                        if (state.connected) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                        if (state.connected) Icons.Filled.CloudDone else Icons.Filled.CloudOff,
                         Modifier.weight(1f))
                     StatTile("Pending", state.tasks.count { it.status == "PENDING" || it.status == "SYNCING" }.toString(),
-                        Icons.Default.Sync, Modifier.weight(1f))
+                        Icons.Filled.Sync, Modifier.weight(1f))
                     StatTile("Failed", state.tasks.count { it.status == "FAILED" }.toString(),
-                        Icons.Default.CloudOff, Modifier.weight(1f))
+                        Icons.Filled.CloudOff, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -110,13 +107,14 @@ fun SyncScreen(onBack: () -> Unit) {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun TaskCard(task: SyncTask, expanded: Boolean, onExpand: () -> Unit) {
     Card(
-        Modifier
+        onClick = onExpand,
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        onClick = onExpand
+            .padding(vertical = 4.dp)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(task.itemTitle.ifBlank { "Deleted item" }, style = MaterialTheme.typography.titleMedium)

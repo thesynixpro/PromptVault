@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.Add
-import androidx.compose.material.icons.Default.Inbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -92,7 +90,7 @@ fun ListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onNewContent) {
-                androidx.compose.material3.Icon(Icons.Default.Add, "New content")
+                androidx.compose.material3.Icon(Icons.Filled.Add, "New content")
             }
         }
     ) { padding ->
@@ -111,7 +109,7 @@ fun ListScreen(
                     EmptyState(
                         title = "Nothing here yet",
                         message = "Create a new item or choose another category.",
-                        icon = Icons.Default.Inbox
+                        icon = Icons.Filled.Inbox
                     )
                 }
             }

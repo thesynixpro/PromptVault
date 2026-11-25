@@ -13,10 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.CloudDone
-import androidx.compose.material.icons.Default.CloudOff
-import androidx.compose.material.icons.Default.Visibility
-import androidx.compose.material.icons.Default.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -66,7 +62,7 @@ fun TelegramScreen(onBack: () -> Unit) {
             Card(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Icon(
-                        if (state.configured) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                        if (state.configured) Icons.Filled.CloudDone else Icons.Filled.CloudOff,
                         null,
                         tint = if (state.configured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -103,7 +99,7 @@ fun TelegramScreen(onBack: () -> Unit) {
                 trailingIcon = {
                     IconButton(onClick = { showToken = !showToken }) {
                         Icon(
-                            if (showToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            if (showToken) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             "Toggle token visibility"
                         )
                     }

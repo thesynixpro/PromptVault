@@ -1,6 +1,7 @@
 package com.promptvault.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,10 +55,10 @@ fun AppTopBar(
         navigationIcon = {
             when {
                 onBack != null -> IconButton(onClick = onBack) {
-                    Icon(androidx.compose.material.icons.Icons.Default.ArrowBack, "Back")
+                    Icon(androidx.compose.material.icons.Icons.Filled.ArrowBack, "Back")
                 }
                 onMenu != null -> IconButton(onClick = onMenu) {
-                    Icon(androidx.compose.material.icons.Icons.Default.Menu, "Menu")
+                    Icon(androidx.compose.material.icons.Icons.Filled.Menu, "Menu")
                 }
             }
         },
@@ -148,9 +149,9 @@ fun ItemCard(
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
             Icon(
                 imageVector = when (item.contentType) {
-                    ContentType.PROMPT -> androidx.compose.material.icons.Icons.Default.AutoAwesome
-                    ContentType.TEXT -> androidx.compose.material.icons.Icons.Default.Description
-                    ContentType.CODE -> androidx.compose.material.icons.Icons.Default.Code
+                    ContentType.PROMPT -> androidx.compose.material.icons.Icons.Filled.AutoAwesome
+                    ContentType.TEXT -> androidx.compose.material.icons.Icons.Filled.Description
+                    ContentType.CODE -> androidx.compose.material.icons.Icons.Filled.Code
                 },
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary
@@ -190,8 +191,8 @@ fun ItemCard(
             }
             IconButton(onClick = onFavorite) {
                 Icon(
-                    if (item.isFavorite) androidx.compose.material.icons.Icons.Default.Star
-                    else androidx.compose.material.icons.Icons.Default.StarBorder,
+                    if (item.isFavorite) androidx.compose.material.icons.Icons.Filled.Star
+                    else androidx.compose.material.icons.Icons.Filled.StarBorder,
                     contentDescription = "Favorite",
                     tint = if (item.isFavorite) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -228,7 +229,7 @@ fun ItemActionSheet(
     onDismiss: () -> Unit,
     onAction: (ItemAction) -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetGesturesEnabled = true) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             Text(
                 item.title,
@@ -253,15 +254,15 @@ fun ItemActionSheet(
                     leadingContent = {
                         Icon(
                             when (action) {
-                                ItemAction.DELETE -> androidx.compose.material.icons.Icons.Default.Delete
-                                ItemAction.FAVORITE -> androidx.compose.material.icons.Icons.Default.Star
-                                ItemAction.MOVE -> androidx.compose.material.icons.Icons.Default.Folder
-                                else -> androidx.compose.material.icons.Icons.Default.Edit
+                                ItemAction.DELETE -> androidx.compose.material.icons.Icons.Filled.Delete
+                                ItemAction.FAVORITE -> androidx.compose.material.icons.Icons.Filled.Star
+                                ItemAction.MOVE -> androidx.compose.material.icons.Icons.Filled.Folder
+                                else -> androidx.compose.material.icons.Icons.Filled.Edit
                             },
                             null
                         )
                     },
-                    onClick = { onAction(action) }
+                    modifier = Modifier.clickable { onAction(action) }
                 )
             }
         }

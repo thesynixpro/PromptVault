@@ -69,8 +69,8 @@ class SettingsDataStore(private val context: Context) {
         )
     }
 
-    private suspend fun edit(block: androidx.datastore.preferences.core.MutablePreferences.() -> Unit) {
-        context.settingsDataStore.edit(block)
+    private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
+        context.settingsDataStore.edit { block(it) }
     }
 
     suspend fun setThemeMode(value: ThemeMode) = edit { it[Keys.THEME] = value.name }

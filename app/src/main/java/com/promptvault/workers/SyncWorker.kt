@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.promptvault.AppContainer
+import com.promptvault.data.database.PromptEntity
 import com.promptvault.data.database.SyncQueueEntity
 import com.promptvault.domain.AppResult
 import com.promptvault.domain.BackupFormatter
+import com.promptvault.domain.ContentType
+import com.promptvault.domain.PromptItem
 import com.promptvault.domain.SyncStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -47,7 +50,7 @@ class SyncWorker(
         val promptDao = database.promptDao()
         val queueDao = database.syncQueueDao()
         val now = System.currentTimeMillis()
-        val item = promptDao.getById(task.promptId)
+        val item = promptDao.getById(task.promptId)?.let(::toDomain)
         if (item == null && task.operation != CLOUD_DELETE) {
             queueDao.delete(task)
             return false
@@ -136,6 +139,26 @@ class SyncWorker(
         if (messageId == null) return AppResult.Success(true)
         return container.telegram.deleteMessage(messageId)
     }
+
+    private fun toDomain(entity: PromptEntity): PromptItem = PromptItem(
+        id = entity.id,
+        title = entity.title,
+        content = entity.content,
+        contentType = runCatching { ContentType.valueOf(entity.contentType) }
+            .getOrDefault(ContentType.TEXT),
+        categoryId = entity.categoryId,
+        folderId = entity.folderId,
+        tags = entity.tags,
+        isFavorite = entity.isFavorite,
+        createdAt = entity.createdAt,
+        updatedAt = entity.updatedAt,
+        localVersion = entity.localVersion,
+        cloudVersion = entity.cloudVersion,
+        telegramMessageId = entity.telegramMessageId,
+        telegramFileId = entity.telegramFileId,
+        syncStatus = runCatching { SyncStatus.valueOf(entity.syncStatus) }
+            .getOrDefault(SyncStatus.LOCAL_ONLY)
+    )
 
     companion object {
         const val CLOUD_CREATE = "CLOUD_CREATE"

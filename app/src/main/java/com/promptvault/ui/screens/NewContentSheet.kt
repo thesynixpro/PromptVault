@@ -1,13 +1,10 @@
 package com.promptvault.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.AutoAwesome
-import androidx.compose.material.icons.Default.Code
-import androidx.compose.material.icons.Default.Description
-import androidx.compose.material.icons.Default.Folder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
@@ -32,15 +29,15 @@ fun NewContentSheet(
                     leadingContent = {
                         androidx.compose.material3.Icon(
                             when (type) {
-                                NewContentType.PROMPT -> Icons.Default.AutoAwesome
-                                NewContentType.TEXT -> Icons.Default.Description
-                                NewContentType.CODE -> Icons.Default.Code
-                                NewContentType.FOLDER -> Icons.Default.Folder
+                                NewContentType.PROMPT -> Icons.Filled.AutoAwesome
+                                NewContentType.TEXT -> Icons.Filled.Description
+                                NewContentType.CODE -> Icons.Filled.Code
+                                NewContentType.FOLDER -> Icons.Filled.Folder
                             },
                             null
                         )
                     },
-                    onClick = { onSelect(type) }
+                    modifier = Modifier.clickable { onSelect(type) }
                 )
             }
         }

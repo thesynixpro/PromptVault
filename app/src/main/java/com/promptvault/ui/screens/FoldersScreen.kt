@@ -13,10 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.Add
-import androidx.compose.material.icons.Default.Delete
-import androidx.compose.material.icons.Default.Edit
-import androidx.compose.material.icons.Default.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
@@ -97,7 +93,7 @@ fun FoldersScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { openEditor(null) }) {
-                Icon(Icons.Default.Add, "New folder")
+                Icon(Icons.Filled.Add, "New folder")
             }
         }
     ) { padding ->
@@ -116,7 +112,7 @@ fun FoldersScreen(
                     EmptyState(
                         "This folder is empty",
                         "Create a nested folder or move items here.",
-                        Icons.Default.Folder
+                        Icons.Filled.Folder
                     )
                 }
             }
@@ -130,7 +126,7 @@ fun FoldersScreen(
                     )
                 ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Folder, null, tint = Color(folder.color))
+                        Icon(Icons.Filled.Folder, null, tint = Color(folder.color))
                         Text(
                             folder.name,
                             Modifier
@@ -138,11 +134,11 @@ fun FoldersScreen(
                                 .padding(horizontal = 12.dp),
                             style = MaterialTheme.typography.titleMedium
                         )
-                        IconButton(onClick = { openEditor(folder) }) { Icon(Icons.Default.Edit, "Rename") }
+                        IconButton(onClick = { openEditor(folder) }) { Icon(Icons.Filled.Edit, "Rename") }
                         IconButton(onClick = {
                             deleting = folder
                             deleteContents = false
-                        }) { Icon(Icons.Default.Delete, "Delete") }
+                        }) { Icon(Icons.Filled.Delete, "Delete") }
                         TextButton(onClick = { onNavigateFolder(folder.id) }) { Text("Open") }
                     }
                 }

@@ -71,7 +71,7 @@ class TelegramApi(
                 )
                 .build()
             val request = request(token, "sendDocument", body)
-            execute<T>(request)
+            execute<TelegramMessage>(request)
         }.getOrElse { mapException(it) }
     }
 

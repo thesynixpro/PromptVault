@@ -2,6 +2,7 @@ package com.promptvault.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,14 +15,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.Default.ContentCopy
-import androidx.compose.material.icons.Default.Delete
-import androidx.compose.material.icons.Default.Redo
-import androidx.compose.material.icons.Default.Save
-import androidx.compose.material.icons.Default.Share
-import androidx.compose.material.icons.Default.Star
-import androidx.compose.material.icons.Default.StarBorder
-import androidx.compose.material.icons.Default.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -98,19 +91,19 @@ fun EditorScreen(
                 onBack = { attemptBack() },
                 actions = {
                     IconButton(onClick = viewModel::undo, enabled = state.canUndo) {
-                        Icon(Icons.Default.Undo, "Undo")
+                        Icon(Icons.Filled.Undo, "Undo")
                     }
                     IconButton(onClick = viewModel::redo, enabled = state.canRedo) {
-                        Icon(Icons.Default.Redo, "Redo")
+                        Icon(Icons.Filled.Redo, "Redo")
                     }
                     IconButton(onClick = viewModel::toggleFavorite) {
                         Icon(
-                            if (state.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                            if (state.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
                             "Favorite"
                         )
                     }
                     IconButton(onClick = { viewModel.save() }) {
-                        Icon(Icons.Default.Save, "Save")
+                        Icon(Icons.Filled.Save, "Save")
                     }
                 }
             )
@@ -232,12 +225,12 @@ fun EditorScreen(
                     clipboard.setText(AnnotatedString(state.content))
                     showToast(context, "Content copied")
                 }) {
-                    Icon(Icons.Default.ContentCopy, null)
+                    Icon(Icons.Filled.ContentCopy, null)
                     Spacer(Modifier.size(6.dp))
                     Text("Copy")
                 }
                 OutlinedButton(onClick = { share(context, state.title, state.content) }) {
-                    Icon(Icons.Default.Share, null)
+                    Icon(Icons.Filled.Share, null)
                     Spacer(Modifier.size(6.dp))
                     Text("Share")
                 }
@@ -247,14 +240,14 @@ fun EditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(onClick = { viewModel.save() }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Save, null)
+                    Icon(Icons.Filled.Save, null)
                     Spacer(Modifier.size(6.dp))
                     Text("Save")
                 }
                 if (!state.isNew) {
                     OutlinedButton(onClick = { viewModel.duplicate() }) { Text("Duplicate") }
                     OutlinedButton(onClick = { showDeleteDialog = true }) {
-                        Icon(Icons.Default.Delete, null)
+                        Icon(Icons.Filled.Delete, null)
                         Spacer(Modifier.size(6.dp))
                         Text("Delete")
                     }
@@ -295,9 +288,4 @@ fun EditorScreen(
             onDismiss = { showDeleteDialog = false }
         )
     }
-}
-
-@Composable
-private fun Box(content: @Composable () -> Unit) {
-    androidx.compose.foundation.layout.Box(content = content)
 }
