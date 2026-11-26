@@ -1,6 +1,6 @@
 package com.promptvault.ui.screens
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,47 +11,51 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.promptvault.BuildConfig
-import com.promptvault.R
 import com.promptvault.ui.components.AppTopBar
 import com.promptvault.ui.components.SectionTitle
+import com.promptvault.ui.theme.GlassCard
+import com.promptvault.ui.theme.VaultBrandMark
+import com.promptvault.ui.theme.VaultScaffold
+import com.promptvault.ui.theme.VaultShapes
+import com.promptvault.ui.theme.VaultSpacing
 
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
-    Scaffold(topBar = { AppTopBar("About", onBack = onBack) }) { padding ->
+    VaultScaffold(topBar = { AppTopBar("About", onBack = onBack) }) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
-                .padding(16.dp),
+                .padding(horizontal = VaultSpacing.lg, vertical = VaultSpacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(VaultSpacing.md)
         ) {
-            Image(
-                painter = painterResource(R.drawable.logo),
-                contentDescription = "PromptVault logo",
-                modifier = Modifier.size(132.dp)
-            )
+            VaultBrandMark(Modifier.size(120.dp))
             Text("PromptVault", style = MaterialTheme.typography.displaySmall)
-            Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Version ${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Text(
                 "A local-first vault for prompts, notes, code snippets, and documents with optional Telegram cloud backup.",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+            GlassCard(Modifier.fillMaxWidth(), shape = VaultShapes.panel) {
+                Column(
+                    Modifier.padding(VaultSpacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(VaultSpacing.xs)
+                ) {
                     Text("Built for", style = MaterialTheme.typography.titleMedium)
                     Text("• AI prompts and reusable templates")
                     Text("• Long text documents and personal notes")
@@ -66,9 +70,10 @@ fun AboutScreen(onBack: () -> Unit) {
                     "Credentials are encrypted with Android Keystore-backed preferences. " +
                     "A Telegram bot token embedded in an app can be extracted by anyone with physical access to that device; " +
                     "for multi-user deployments, use a backend that keeps the token server-side.",
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(VaultSpacing.lg))
             Row { Text("Material 3 • Kotlin • Jetpack Compose") }
         }
     }

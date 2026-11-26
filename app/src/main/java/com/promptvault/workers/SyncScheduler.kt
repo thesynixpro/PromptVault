@@ -14,9 +14,10 @@ class SyncScheduler(private val context: Context) {
     private val workManager = WorkManager.getInstance(context.applicationContext)
 
     fun enqueueNow(wifiOnly: Boolean = false) {
+        cancelLegacyWork()
         workManager.enqueueUniqueWork(
-            WORK_IMMEDIATE,
-            ExistingWorkPolicy.REPLACE,
+            WORK_SYNC,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             OneTimeWorkRequestBuilder<SyncWorker>()
                 .setConstraints(constraints(wifiOnly))
                 .build()
@@ -24,9 +25,10 @@ class SyncScheduler(private val context: Context) {
     }
 
     fun enqueueSoon(wifiOnly: Boolean = false) {
+        cancelLegacyWork()
         workManager.enqueueUniqueWork(
-            WORK_QUEUED,
-            ExistingWorkPolicy.KEEP,
+            WORK_SYNC,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             OneTimeWorkRequestBuilder<SyncWorker>()
                 .setConstraints(constraints(wifiOnly))
                 .setInitialDelay(5, TimeUnit.SECONDS)
@@ -34,9 +36,7 @@ class SyncScheduler(private val context: Context) {
         )
     }
 
-    fun retryFailed(wifiOnly: Boolean = false) {
-        enqueueNow(wifiOnly)
-    }
+    fun retryFailed(wifiOnly: Boolean = false) = enqueueNow(wifiOnly)
 
     fun configurePeriodic(enabled: Boolean, wifiOnly: Boolean) {
         if (!enabled) {
@@ -45,11 +45,25 @@ class SyncScheduler(private val context: Context) {
         }
         workManager.enqueueUniquePeriodicWork(
             WORK_PERIODIC,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(constraints(wifiOnly))
                 .build()
         )
+    }
+
+    /**
+     * Applies settings changes to scheduled work. One-time work is deliberately left intact so an
+     * explicit cloud delete is not lost when automatic backup is switched off.
+     */
+    fun applySettings(autoBackup: Boolean, wifiOnly: Boolean) {
+        configurePeriodic(autoBackup, wifiOnly)
+        if (autoBackup) enqueueSoon(wifiOnly)
+    }
+
+    private fun cancelLegacyWork() {
+        workManager.cancelUniqueWork(WORK_IMMEDIATE)
+        workManager.cancelUniqueWork(WORK_QUEUED)
     }
 
     private fun constraints(wifiOnly: Boolean) = Constraints.Builder()
@@ -57,6 +71,7 @@ class SyncScheduler(private val context: Context) {
         .build()
 
     companion object {
+        const val WORK_SYNC = "promptvault_sync"
         const val WORK_IMMEDIATE = "promptvault_sync_now"
         const val WORK_QUEUED = "promptvault_sync_queued"
         const val WORK_PERIODIC = "promptvault_sync_periodic"

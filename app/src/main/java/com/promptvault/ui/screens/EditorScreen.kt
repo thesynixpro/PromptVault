@@ -1,12 +1,4 @@
 package com.promptvault.ui.screens
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Redo
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material.icons.filled.Undo
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +15,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -31,7 +32,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -54,6 +55,11 @@ import androidx.compose.ui.unit.sp
 import com.promptvault.domain.ContentType
 import com.promptvault.ui.components.AppTopBar
 import com.promptvault.ui.components.ConfirmDialog
+import com.promptvault.ui.theme.GlassCard
+import com.promptvault.ui.theme.VaultScaffold
+import com.promptvault.ui.theme.VaultShapes
+import com.promptvault.ui.theme.VaultSpacing
+import com.promptvault.ui.theme.glassTextFieldColors
 import com.promptvault.ui.viewmodels.EditorViewModel
 import com.promptvault.ui.viewmodels.appViewModel
 import kotlinx.coroutines.launch
@@ -82,134 +88,206 @@ fun EditorScreen(
         if (state.dirty) showExitDialog = true else onBack()
     }
 
-    BackHandler(enabled = true) { attemptBack() }
+    BackHandler(enabled = !showExitDialog && !showDeleteDialog) { attemptBack() }
 
     LaunchedEffect(state.savedItemId) {
         state.savedItemId?.let { id ->
+            val wasNew = state.isNew
+            viewModel.consumeSaved()
             snackbarHostState.showSnackbar("Saved to your local vault")
-            if (state.isNew) onSaved(id)
+            if (wasNew) onSaved(id)
         }
     }
 
-    Scaffold(
+    LaunchedEffect(state.error) {
+        state.error?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearError()
+        }
+    }
+
+    VaultScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AppTopBar(
                 title = if (state.isNew) "New ${state.contentType.name.lowercase()}" else "Edit item",
                 onBack = { attemptBack() },
                 actions = {
-                    IconButton(onClick = viewModel::undo, enabled = state.canUndo) {
+                    IconButton(
+                        onClick = viewModel::undo,
+                        enabled = state.canUndo && !state.isSaving
+                    ) {
                         Icon(Icons.Filled.Undo, "Undo")
                     }
-                    IconButton(onClick = viewModel::redo, enabled = state.canRedo) {
+                    IconButton(
+                        onClick = viewModel::redo,
+                        enabled = state.canRedo && !state.isSaving
+                    ) {
                         Icon(Icons.Filled.Redo, "Redo")
                     }
-                    IconButton(onClick = viewModel::toggleFavorite) {
+                    IconButton(onClick = viewModel::toggleFavorite, enabled = !state.isSaving) {
                         Icon(
                             if (state.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
                             "Favorite"
                         )
                     }
-                    IconButton(onClick = { viewModel.save() }) {
+                    IconButton(onClick = { viewModel.save() }, enabled = !state.isSaving) {
                         Icon(Icons.Filled.Save, "Save")
                     }
                 }
             )
         }
     ) { padding ->
+        if (!state.loaded) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@VaultScaffold
+        }
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = VaultSpacing.lg, vertical = VaultSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(VaultSpacing.md)
         ) {
-            OutlinedTextField(
-                value = state.title,
-                onValueChange = viewModel::onTitleChange,
-                label = { Text("Title") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-            )
+            GlassCard(shape = VaultShapes.panel) {
+                Column(
+                    Modifier.padding(VaultSpacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(VaultSpacing.md)
+                ) {
+                    OutlinedTextField(
+                        value = state.title,
+                        onValueChange = viewModel::onTitleChange,
+                        label = { Text("Title") },
+                        enabled = !state.isSaving,
+                        singleLine = true,
+                        shape = VaultShapes.compact,
+                        colors = glassTextFieldColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box {
-                    OutlinedButton(onClick = { typeMenu = true }) {
-                        Text(state.contentType.name.lowercase().replaceFirstChar { it.uppercase() })
-                    }
-                    DropdownMenu(typeMenu, onDismissRequest = { typeMenu = false }) {
-                        ContentType.entries.forEach { type ->
-                            DropdownMenuItem(
-                                text = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                                onClick = {
-                                    viewModel.onTypeChange(type)
-                                    typeMenu = false
+                    Row(horizontalArrangement = Arrangement.spacedBy(VaultSpacing.sm)) {
+                        Box {
+                            OutlinedButton(
+                                onClick = { typeMenu = true },
+                                enabled = !state.isSaving
+                            ) {
+                                Text(
+                                    state.contentType.name.lowercase()
+                                        .replaceFirstChar { it.uppercase() }
+                                )
+                            }
+                            DropdownMenu(typeMenu, onDismissRequest = { typeMenu = false }) {
+                                ContentType.entries.forEach { type ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                type.name.lowercase()
+                                                    .replaceFirstChar { it.uppercase() }
+                                            )
+                                        },
+                                        onClick = {
+                                            viewModel.onTypeChange(type)
+                                            typeMenu = false
+                                        }
+                                    )
                                 }
-                            )
+                            }
                         }
-                    }
-                }
-                Box {
-                    OutlinedButton(onClick = { categoryMenu = true }) {
-                        Text(state.categories.firstOrNull { it.id == state.categoryId }?.name ?: "No category")
-                    }
-                    DropdownMenu(categoryMenu, onDismissRequest = { categoryMenu = false }) {
-                        DropdownMenuItem(text = { Text("No category") }, onClick = {
-                            viewModel.onCategoryChange(null)
-                            categoryMenu = false
-                        })
-                        state.categories.forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text(category.name) },
-                                onClick = {
-                                    viewModel.onCategoryChange(category.id)
+                        Box {
+                            OutlinedButton(
+                                onClick = { categoryMenu = true },
+                                enabled = !state.isSaving
+                            ) {
+                                Text(
+                                    state.categories.firstOrNull { it.id == state.categoryId }?.name
+                                        ?: "No category"
+                                )
+                            }
+                            DropdownMenu(
+                                categoryMenu,
+                                onDismissRequest = { categoryMenu = false }
+                            ) {
+                                DropdownMenuItem(text = { Text("No category") }, onClick = {
+                                    viewModel.onCategoryChange(null)
                                     categoryMenu = false
+                                })
+                                state.categories.forEach { category ->
+                                    DropdownMenuItem(
+                                        text = { Text(category.name) },
+                                        onClick = {
+                                            viewModel.onCategoryChange(category.id)
+                                            categoryMenu = false
+                                        }
+                                    )
                                 }
-                            )
+                            }
                         }
-                    }
-                }
-                Box {
-                    OutlinedButton(onClick = { folderMenu = true }) {
-                        Text(state.folders.firstOrNull { it.id == state.folderId }?.name ?: "No folder")
-                    }
-                    DropdownMenu(folderMenu, onDismissRequest = { folderMenu = false }) {
-                        DropdownMenuItem(text = { Text("No folder") }, onClick = {
-                            viewModel.onFolderChange(null)
-                            folderMenu = false
-                        })
-                        state.folders.forEach { folder ->
-                            DropdownMenuItem(
-                                text = { Text(folder.name) },
-                                onClick = {
-                                    viewModel.onFolderChange(folder.id)
+                        Box {
+                            OutlinedButton(
+                                onClick = { folderMenu = true },
+                                enabled = !state.isSaving
+                            ) {
+                                Text(
+                                    state.folders.firstOrNull { it.id == state.folderId }?.name
+                                        ?: "No folder"
+                                )
+                            }
+                            DropdownMenu(folderMenu, onDismissRequest = { folderMenu = false }) {
+                                DropdownMenuItem(text = { Text("No folder") }, onClick = {
+                                    viewModel.onFolderChange(null)
                                     folderMenu = false
+                                })
+                                state.folders.forEach { folder ->
+                                    DropdownMenuItem(
+                                        text = { Text(folder.name) },
+                                        onClick = {
+                                            viewModel.onFolderChange(folder.id)
+                                            folderMenu = false
+                                        }
+                                    )
                                 }
-                            )
+                            }
                         }
                     }
+
+                    OutlinedTextField(
+                        value = state.tagsRaw,
+                        onValueChange = viewModel::onTagsChange,
+                        label = { Text("Tags (comma separated)") },
+                        enabled = !state.isSaving,
+                        shape = VaultShapes.compact,
+                        colors = glassTextFieldColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
                 }
             }
-
-            OutlinedTextField(
-                value = state.tagsRaw,
-                onValueChange = viewModel::onTagsChange,
-                label = { Text("Tags (comma separated)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
 
             OutlinedTextField(
                 value = state.content,
                 onValueChange = viewModel::onContentChange,
                 label = { Text("Content") },
+                enabled = !state.isSaving,
+                shape = VaultShapes.panel,
+                colors = glassTextFieldColors(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(420.dp),
                 textStyle = androidx.compose.ui.text.TextStyle(
-                    fontFamily = if (state.contentType == ContentType.CODE) FontFamily.Monospace else FontFamily.Default,
+                    fontFamily = if (state.contentType == ContentType.CODE) {
+                        FontFamily.Monospace
+                    } else {
+                        FontFamily.Default
+                    },
                     fontSize = state.fontSize.sp,
                     lineHeight = (state.fontSize + state.lineSpacing).sp
                 ),
@@ -217,17 +295,23 @@ fun EditorScreen(
                 maxLines = 2000
             )
 
-            Text(
-                "${state.wordCount} words • ${state.characterCount} characters • ${state.lineCount} lines" +
-                    if (state.draftSaved && state.autoSave) " • Draft saved" else "",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${state.wordCount} words • ${state.characterCount} characters • " +
+                        "${state.lineCount} lines" +
+                        if (state.draftSaved && state.autoSave) " • Draft saved" else "",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                if (state.isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(VaultSpacing.sm)
             ) {
                 OutlinedButton(onClick = {
                     clipboard.setText(AnnotatedString(state.content))
@@ -245,16 +329,26 @@ fun EditorScreen(
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(VaultSpacing.sm)
             ) {
-                Button(onClick = { viewModel.save() }, modifier = Modifier.weight(1f)) {
+                Button(
+                    onClick = { viewModel.save() },
+                    enabled = !state.isSaving,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Icon(Icons.Filled.Save, null)
                     Spacer(Modifier.size(6.dp))
-                    Text("Save")
+                    Text(if (state.isSaving) "Saving…" else "Save")
                 }
                 if (!state.isNew) {
-                    OutlinedButton(onClick = { viewModel.duplicate() }) { Text("Duplicate") }
-                    OutlinedButton(onClick = { showDeleteDialog = true }) {
+                    OutlinedButton(
+                        onClick = { viewModel.duplicate() },
+                        enabled = !state.isSaving
+                    ) { Text("Duplicate") }
+                    OutlinedButton(
+                        onClick = { showDeleteDialog = true },
+                        enabled = !state.isSaving
+                    ) {
                         Icon(Icons.Filled.Delete, null)
                         Spacer(Modifier.size(6.dp))
                         Text("Delete")
@@ -289,9 +383,17 @@ fun EditorScreen(
             confirmLabel = "Delete",
             onConfirm = {
                 showDeleteDialog = false
-                viewModel.delete()
-                scope.launch { snackbarHostState.showSnackbar("Item deleted") }
-                onDeleted()
+                scope.launch {
+                    val deleted = viewModel.delete()
+                    if (deleted) {
+                        snackbarHostState.showSnackbar("Item deleted")
+                        onDeleted()
+                    } else {
+                        snackbarHostState.showSnackbar(
+                            viewModel.state.value.deleteError ?: "The item could not be deleted."
+                        )
+                    }
+                }
             },
             onDismiss = { showDeleteDialog = false }
         )

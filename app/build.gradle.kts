@@ -14,8 +14,10 @@ android {
         applicationId = "com.promptvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        val buildNumber = providers.gradleProperty("promptVaultVersionCode")
+            .orNull?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        versionCode = buildNumber
+        versionName = "1.0.$buildNumber"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

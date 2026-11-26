@@ -1,9 +1,9 @@
 package com.promptvault.ui.screens
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Inbox
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,8 +41,12 @@ import com.promptvault.ui.components.EmptyState
 import com.promptvault.ui.components.ItemAction
 import com.promptvault.ui.components.ItemActionSheet
 import com.promptvault.ui.components.ItemCard
+import com.promptvault.ui.theme.GlassCard
+import com.promptvault.ui.theme.GlassFab
+import com.promptvault.ui.theme.VaultScaffold
+import com.promptvault.ui.theme.VaultShapes
+import com.promptvault.ui.theme.VaultSpacing
 import com.promptvault.ui.viewmodels.ListViewModel
-import com.promptvault.ui.viewmodels.SettingsViewModel
 import com.promptvault.ui.viewmodels.appViewModel
 
 @Composable
@@ -50,7 +58,6 @@ fun ListScreen(
     onBack: () -> Unit
 ) {
     val viewModel: ListViewModel = appViewModel { ListViewModel(it, filter) }
-    val settingsViewModel: SettingsViewModel = appViewModel { SettingsViewModel(it) }
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -59,7 +66,7 @@ fun ListScreen(
     var moveTarget by remember { mutableStateOf<PromptItem?>(null) }
     var deleteTarget by remember { mutableStateOf<PromptItem?>(null) }
 
-    Scaffold(
+    VaultScaffold(
         topBar = {
             AppTopBar(
                 title = when (filter) {
@@ -73,6 +80,7 @@ fun ListScreen(
                 actions = {
                     Box {
                         TextButton(onClick = { sortExpanded = true }) {
+                            Icon(Icons.Filled.Sort, contentDescription = "Sort", modifier = Modifier.padding(end = 4.dp))
                             Text(state.sort.name.replace('_', ' '))
                         }
                         DropdownMenu(sortExpanded, onDismissRequest = { sortExpanded = false }) {
@@ -91,28 +99,55 @@ fun ListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewContent) {
-                androidx.compose.material3.Icon(Icons.Filled.Add, "New content")
-            }
+            GlassFab(
+                onClick = onNewContent,
+                icon = Icons.Filled.Add,
+                contentDescription = "New content"
+            )
         }
     ) { padding ->
         LazyColumn(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            contentPadding = PaddingValues(bottom = 88.dp)
         ) {
             item {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("${state.items.size} items")
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = VaultSpacing.lg, vertical = VaultSpacing.sm),
+                    shape = VaultShapes.compact
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = VaultSpacing.lg, vertical = VaultSpacing.md),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                "${state.items.size} ${if (state.items.size == 1) "item" else "items"}",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Sorted by ${state.sort.name.lowercase().replace('_', ' ')}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
             if (state.items.isEmpty()) {
                 item {
-                    EmptyState(
-                        title = "Nothing here yet",
-                        message = "Create a new item or choose another category.",
-                        icon = Icons.Filled.Inbox
-                    )
+                    Box(Modifier.padding(horizontal = VaultSpacing.lg)) {
+                        EmptyState(
+                            title = "Nothing here yet",
+                            message = "Create a new item or choose another category.",
+                            icon = Icons.Filled.Inbox
+                        )
+                    }
                 }
             }
             items(state.items, key = { it.id }) { item ->
@@ -181,7 +216,7 @@ private fun AlertDialogMove(
     onMove: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Move “${item.title}”") },
         text = {

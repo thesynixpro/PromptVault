@@ -1,8 +1,4 @@
 package com.promptvault.ui.screens
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -17,27 +13,33 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.promptvault.domain.Folder
 import com.promptvault.domain.PromptItem
@@ -45,10 +47,18 @@ import com.promptvault.ui.components.AppTopBar
 import com.promptvault.ui.components.ConfirmDialog
 import com.promptvault.ui.components.EmptyState
 import com.promptvault.ui.components.ItemCard
+import com.promptvault.ui.theme.GlassCard
+import com.promptvault.ui.theme.GlassFab
+import com.promptvault.ui.theme.VaultScaffold
+import com.promptvault.ui.theme.VaultShapes
+import com.promptvault.ui.theme.VaultSpacing
+import com.promptvault.ui.theme.glassTextFieldColors
 import com.promptvault.ui.viewmodels.FoldersViewModel
 import com.promptvault.ui.viewmodels.appViewModel
 
-private val folderColors = listOf(0xFF1565C0L, 0xFF00838FL, 0xFF6A1B9AL, 0xFF2E7D32L, 0xFFEF6C00L)
+private val folderColors = listOf(
+    0xFF1565C0L, 0xFF00838FL, 0xFF6A1B9AL, 0xFF2E7D32L, 0xFFEF6C00L
+)
 
 @Composable
 fun FoldersScreen(
@@ -63,7 +73,7 @@ fun FoldersScreen(
     var editing by remember { mutableStateOf<Folder?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
-    var color by remember { mutableStateOf(folderColors.first()) }
+    var color by remember { mutableLongStateOf(folderColors.first()) }
     var deleting by remember { mutableStateOf<Folder?>(null) }
     var deleteContents by remember { mutableStateOf(false) }
     var moveTarget by remember { mutableStateOf<PromptItem?>(null) }
@@ -85,69 +95,96 @@ fun FoldersScreen(
         showEditor = true
     }
 
-    Scaffold(
+    VaultScaffold(
         topBar = {
             AppTopBar(
                 title = state.currentFolder?.name ?: "Folders",
-                onBack = {
-                    if (parentId != null) onNavigateFolder(state.currentFolder?.parentFolderId)
-                    else onBack()
-                }
+                onBack = onBack
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { openEditor(null) }) {
-                Icon(Icons.Filled.Add, "New folder")
-            }
+            GlassFab(
+                onClick = { openEditor(null) },
+                icon = Icons.Filled.Add,
+                contentDescription = "New folder"
+            )
         }
     ) { padding ->
         LazyColumn(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                bottom = 88.dp
+            )
         ) {
-            item {
-                if (parentId != null) {
-                    TextButton(onClick = { onNavigateFolder(null) }) { Text("All folders /") }
+            if (parentId != null) {
+                item {
+                    Row(Modifier.padding(horizontal = VaultSpacing.lg)) {
+                        TextButton(onClick = { onNavigateFolder(null) }) {
+                            Text("All folders")
+                        }
+                    }
                 }
             }
             if (state.childFolders.isEmpty() && state.items.isEmpty()) {
                 item {
-                    EmptyState(
-                        "This folder is empty",
-                        "Create a nested folder or move items here.",
-                        Icons.Filled.Folder
-                    )
+                    Box(Modifier.padding(horizontal = VaultSpacing.lg)) {
+                        EmptyState(
+                            "This folder is empty",
+                            "Create a nested folder or move items here.",
+                            Icons.Filled.Folder
+                        )
+                    }
                 }
             }
             items(state.childFolders, key = { it.id }) { folder ->
-                Card(
+                GlassCard(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = Color(folder.color).copy(alpha = 0.12f)
-                    )
+                        .padding(horizontal = VaultSpacing.lg, vertical = VaultSpacing.xs),
+                    shape = VaultShapes.compact
                 ) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Folder, null, tint = Color(folder.color))
+                    Row(
+                        Modifier.padding(VaultSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier
+                                .size(38.dp)
+                                .background(
+                                    Color(folder.color).copy(alpha = 0.18f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Folder, null, tint = Color(folder.color))
+                        }
                         Text(
                             folder.name,
                             Modifier
                                 .weight(1f)
-                                .padding(horizontal = 12.dp),
+                                .padding(horizontal = VaultSpacing.md),
                             style = MaterialTheme.typography.titleMedium
                         )
-                        IconButton(onClick = { openEditor(folder) }) { Icon(Icons.Filled.Edit, "Rename") }
+                        IconButton(onClick = { openEditor(folder) }) {
+                            Icon(Icons.Filled.Edit, "Rename")
+                        }
                         IconButton(onClick = {
                             deleting = folder
                             deleteContents = false
                         }) { Icon(Icons.Filled.Delete, "Delete") }
-                        TextButton(onClick = { onNavigateFolder(folder.id) }) { Text("Open") }
+                        TextButton(onClick = { onNavigateFolder(folder.id) }) {
+                            Text("Open")
+                        }
                     }
                 }
             }
-            item { androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+            if (state.childFolders.isNotEmpty() && state.items.isNotEmpty()) {
+                item {
+                    HorizontalDivider(Modifier.padding(vertical = VaultSpacing.sm))
+                }
+            }
             items(state.items, key = { it.id }) { item ->
                 ItemCard(
                     item = item,
@@ -164,22 +201,31 @@ fun FoldersScreen(
             onDismissRequest = { showEditor = false },
             title = { Text(if (editing == null) "New folder" else "Rename folder") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(VaultSpacing.md)) {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text("Folder name") },
-                        singleLine = true
+                        singleLine = true,
+                        shape = VaultShapes.compact,
+                        colors = glassTextFieldColors()
                     )
                     Text("Color", style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        folderColors.forEach { value ->
-                            androidx.compose.material3.FilterChip(
+                    Row(horizontalArrangement = Arrangement.spacedBy(VaultSpacing.sm)) {
+                        folderColors.forEachIndexed { index, value ->
+                            FilterChip(
                                 selected = color == value,
                                 onClick = { color = value },
+                                modifier = Modifier.semantics {
+                                    contentDescription = "Color ${index + 1}"
+                                },
                                 label = { Text(" ") },
                                 leadingIcon = {
-                                    Box(Modifier.size(16.dp).background(Color(value), CircleShape))
+                                    Box(
+                                        Modifier
+                                            .size(16.dp)
+                                            .background(Color(value), CircleShape)
+                                    )
                                 }
                             )
                         }
@@ -189,13 +235,18 @@ fun FoldersScreen(
             confirmButton = {
                 TextButton(onClick = {
                     if (name.isNotBlank()) {
-                        if (editing == null) viewModel.create(name, color, "folder")
-                        else viewModel.update(editing!!.id, name, color, editing!!.icon)
+                        if (editing == null) {
+                            viewModel.create(name, color, "folder")
+                        } else {
+                            viewModel.update(editing!!.id, name, color, editing!!.icon)
+                        }
                         showEditor = false
                     }
                 }) { Text("Save") }
             },
-            dismissButton = { TextButton(onClick = { showEditor = false }) { Text("Cancel") } }
+            dismissButton = {
+                TextButton(onClick = { showEditor = false }) { Text("Cancel") }
+            }
         )
     }
 
@@ -207,11 +258,17 @@ fun FoldersScreen(
                 Column {
                     Text("What should happen to its contents?")
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = !deleteContents, onClick = { deleteContents = false })
+                        RadioButton(
+                            selected = !deleteContents,
+                            onClick = { deleteContents = false }
+                        )
                         Text("Move contents to parent folder")
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = deleteContents, onClick = { deleteContents = true })
+                        RadioButton(
+                            selected = deleteContents,
+                            onClick = { deleteContents = true }
+                        )
                         Text("Delete all contents too")
                     }
                 }
@@ -244,7 +301,9 @@ fun FoldersScreen(
                     }
                 }
             },
-            confirmButton = {},
+            confirmButton = {
+                TextButton(onClick = { moveTarget = null }) { Text("Done") }
+            },
             dismissButton = { TextButton(onClick = { moveTarget = null }) { Text("Cancel") } }
         )
     }

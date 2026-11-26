@@ -9,9 +9,12 @@ import com.promptvault.domain.ContentType
 import com.promptvault.domain.SortMode
 import com.promptvault.domain.ThemeMode
 import com.promptvault.domain.ViewMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class StorageInfo(
     val itemCount: Int = 0,
@@ -36,36 +39,40 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
     fun setSort(value: SortMode) = viewModelScope.launch { settingsStore.setSortMode(value) }
     fun setFontSize(value: Int) = viewModelScope.launch { settingsStore.setFontSize(value) }
     fun setLineSpacing(value: Int) = viewModelScope.launch { settingsStore.setLineSpacing(value) }
+    fun commitFontSize(value: Int) = viewModelScope.launch { settingsStore.setFontSize(value) }
+    fun commitLineSpacing(value: Int) = viewModelScope.launch { settingsStore.setLineSpacing(value) }
     fun setAutoSave(value: Boolean) = viewModelScope.launch { settingsStore.setAutoSave(value) }
     fun setDefaultType(value: ContentType) = viewModelScope.launch { settingsStore.setDefaultContentType(value) }
     fun setHideSensitive(value: Boolean) = viewModelScope.launch { settingsStore.setHideSensitive(value) }
 
     fun setAutoBackup(value: Boolean) = viewModelScope.launch {
         settingsStore.setAutoBackup(value)
-        scheduler.configurePeriodic(value, settings.value.wifiOnly)
+        scheduler.applySettings(value, settingsStore.settings.first().wifiOnly)
     }
 
     fun setWifiOnly(value: Boolean) = viewModelScope.launch {
         settingsStore.setWifiOnly(value)
-        scheduler.configurePeriodic(settings.value.autoBackup, value)
+        scheduler.applySettings(settingsStore.settings.first().autoBackup, value)
     }
 
     fun disconnectTelegram() {
         telegram.disconnect()
     }
 
-    suspend fun storageInfo(context: Context): StorageInfo {
+    suspend fun storageInfo(context: Context): StorageInfo = withContext(Dispatchers.IO) {
         val stats = repository.getStats()
         val bytes = context.databaseList()
             .filter { it.endsWith(".db") || it.endsWith(".db-wal") || it.endsWith(".db-shm") }
             .sumOf { name -> context.getDatabasePath(name)?.length() ?: 0L }
-        return StorageInfo(stats.total, bytes)
+        StorageInfo(stats.total, bytes)
     }
 
     fun clearCache(context: Context) = viewModelScope.launch {
-        runCatching {
+        withContext(Dispatchers.IO) {
             context.cacheDir.listFiles()?.forEach { file ->
-                if (file.isDirectory) file.deleteRecursively() else file.delete()
+                // SyncWorker writes documents here while an upload is in flight.
+                if (file.name.startsWith("promptvault_sync_")) return@forEach
+                runCatching { if (file.isDirectory) file.deleteRecursively() else file.delete() }
             }
         }
     }

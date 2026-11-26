@@ -26,6 +26,7 @@ import com.promptvault.telegram.TelegramRepository
 import com.promptvault.workers.SyncScheduler
 import com.promptvault.workers.SyncWorker
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -75,8 +76,9 @@ class PromptRepository(
         sort: SortMode = SortMode.RECENTLY_MODIFIED,
         query: String = ""
     ): Flow<List<PromptItem>> {
-        val source = if (query.isBlank()) promptDao.observeItems() else promptDao.search(query.trim())
-        return source.map { rows ->
+        // SearchEngine performs Unicode-aware, literal matching. Keeping one observable source also
+        // avoids SQL LIKE wildcard surprises for %, _ and non-ASCII case folding.
+        return promptDao.observeItems().map { rows ->
             val items = rows.map(::toDomain)
             SearchEngine.sort(SearchEngine.filter(items, filter, query), sort)
         }
@@ -125,6 +127,13 @@ class PromptRepository(
     suspend fun updateItem(id: String, input: ItemInput) {
         val existing = promptDao.getById(id) ?: return
         val queue = shouldQueue()
+        // An edit is dirty even while Telegram is disconnected; otherwise a previously synced
+        // item keeps SYNCED status and queueAllForSync() would never pick it up later.
+        val dirtyStatus = if (existing.cloudVersion > 0) {
+            SyncStatus.UPDATE_PENDING.name
+        } else {
+            SyncStatus.PENDING.name
+        }
         promptDao.upsert(
             existing.copy(
                 title = input.title.trim(),
@@ -136,7 +145,7 @@ class PromptRepository(
                 isFavorite = input.isFavorite,
                 updatedAt = System.currentTimeMillis(),
                 localVersion = existing.localVersion + 1,
-                syncStatus = if (queue) SyncStatus.UPDATE_PENDING.name else existing.syncStatus
+                syncStatus = dirtyStatus
             )
         )
         if (queue) {
@@ -152,6 +161,10 @@ class PromptRepository(
         val item = promptDao.getById(id) ?: return
         val next = !item.isFavorite
         promptDao.setFavorite(id, next, System.currentTimeMillis())
+        promptDao.setSyncStatus(
+            id,
+            if (item.cloudVersion > 0) SyncStatus.UPDATE_PENDING.name else SyncStatus.PENDING.name
+        )
         if (shouldQueue()) {
             enqueueOperation(id, SyncWorker.CLOUD_UPDATE, item.telegramMessageId)
         }
@@ -160,6 +173,10 @@ class PromptRepository(
     suspend fun moveItem(id: String, folderId: String?) {
         val item = promptDao.getById(id) ?: return
         promptDao.moveToFolder(id, folderId, System.currentTimeMillis())
+        promptDao.setSyncStatus(
+            id,
+            if (item.cloudVersion > 0) SyncStatus.UPDATE_PENDING.name else SyncStatus.PENDING.name
+        )
         if (shouldQueue()) {
             enqueueOperation(id, SyncWorker.CLOUD_UPDATE, item.telegramMessageId)
         }
@@ -189,17 +206,33 @@ class PromptRepository(
 
     suspend fun deleteItem(id: String, requestCloudDelete: Boolean) {
         val item = promptDao.getById(id) ?: return
-        if (requestCloudDelete && shouldQueue() && item.telegramMessageId != null) {
-            enqueueOperation(
-                id,
-                SyncWorker.CLOUD_DELETE,
-                item.telegramMessageId,
-                forceNewTask = true
+        val cloudDeleteTaskId = if (
+            requestCloudDelete && telegram.configured.value && item.telegramMessageId != null
+        ) {
+            val taskId = UUID.randomUUID().toString()
+            queueDao.upsert(
+                SyncQueueEntity(
+                    id = taskId,
+                    promptId = id,
+                    operation = SyncWorker.CLOUD_DELETE,
+                    status = "PENDING",
+                    targetMessageId = item.telegramMessageId
+                )
             )
+            taskId
+        } else {
+            null
         }
-        queueDao.deleteForPrompt(id)
+        if (cloudDeleteTaskId != null) {
+            queueDao.deleteForPromptExcept(id, cloudDeleteTaskId)
+        } else {
+            queueDao.deleteForPrompt(id)
+        }
         draftDao.delete(id)
         promptDao.delete(item)
+        if (cloudDeleteTaskId != null) {
+            syncScheduler.enqueueNow(settings.settings.first().wifiOnly)
+        }
     }
 
     suspend fun saveDraft(input: ItemInput, itemId: String) {
@@ -230,11 +263,15 @@ class PromptRepository(
         return id
     }
 
-    suspend fun updateCategory(id: String, name: String, color: Long, icon: String) =
+    suspend fun updateCategory(id: String, name: String, color: Long, icon: String) {
         categoryDao.update(id, name.trim(), color, icon)
+        queueItemsForMetadataChange(promptDao.getByCategory(id))
+    }
 
     suspend fun deleteCategory(id: String) {
+        val affected = promptDao.getByCategory(id)
         categoryDao.clearFromItems(id)
+        queueItemsForMetadataChange(affected)
         categoryDao.delete(categoryDao.getById(id) ?: return)
     }
 
@@ -251,36 +288,60 @@ class PromptRepository(
         return id
     }
 
-    suspend fun updateFolder(id: String, name: String, color: Long, icon: String) =
+    suspend fun updateFolder(id: String, name: String, color: Long, icon: String) {
         folderDao.update(id, name.trim(), color, icon)
+        queueItemsForMetadataChange(promptDao.getByFolder(id))
+    }
 
     suspend fun deleteFolder(id: String, deleteContents: Boolean) {
         val folder = folderDao.getById(id) ?: return
+        val destination = folder.parentFolderId
         val children = folderDao.getChildren(id)
-        children.forEach { child -> deleteFolderRecursive(child.id, deleteContents) }
+        children.forEach { child -> deleteFolderRecursive(child.id, deleteContents, destination) }
         val items = promptDao.getByFolder(id)
         if (deleteContents) {
-            items.forEach { promptDao.delete(it) }
+            items.forEach { deleteItem(it.id, requestCloudDelete = false) }
         } else {
             items.forEach { item ->
-                val now = System.currentTimeMillis()
-                promptDao.moveToFolder(item.id, folder.parentFolderId, now)
-                if (shouldQueue()) enqueueOperation(item.id, SyncWorker.CLOUD_UPDATE, item.telegramMessageId)
+                promptDao.moveToFolder(item.id, destination, System.currentTimeMillis())
+                queueMetadataChange(item)
             }
         }
         folderDao.delete(folder)
     }
 
-    private suspend fun deleteFolderRecursive(id: String, deleteContents: Boolean) {
-        folderDao.getChildren(id).forEach { deleteFolderRecursive(it.id, deleteContents) }
+    private suspend fun deleteFolderRecursive(
+        id: String,
+        deleteContents: Boolean,
+        destinationParentId: String?
+    ) {
+        val folder = folderDao.getById(id) ?: return
+        folderDao.getChildren(id).forEach {
+            deleteFolderRecursive(it.id, deleteContents, destinationParentId)
+        }
         val items = promptDao.getByFolder(id)
         if (deleteContents) {
-            items.forEach { promptDao.delete(it) }
+            items.forEach { deleteItem(it.id, requestCloudDelete = false) }
         } else {
-            val parent = folderDao.getById(id)?.parentFolderId
-            items.forEach { promptDao.moveToFolder(it.id, parent, System.currentTimeMillis()) }
+            items.forEach { item ->
+                promptDao.moveToFolder(item.id, destinationParentId, System.currentTimeMillis())
+                queueMetadataChange(item)
+            }
         }
         folderDao.getById(id)?.let { folderDao.delete(it) }
+    }
+
+    private suspend fun queueItemsForMetadataChange(items: List<PromptEntity>) {
+        items.forEach { item ->
+            promptDao.touch(item.id, System.currentTimeMillis())
+            queueMetadataChange(item)
+        }
+    }
+
+    private suspend fun queueMetadataChange(item: PromptEntity) {
+        if (!shouldQueue()) return
+        promptDao.setSyncStatus(item.id, SyncStatus.UPDATE_PENDING.name)
+        enqueueOperation(item.id, SyncWorker.CLOUD_UPDATE, item.telegramMessageId)
     }
 
     suspend fun addSearchQuery(query: String) {
@@ -433,6 +494,25 @@ class PromptRepository(
         return id
     }
 
+    fun observeStats(): Flow<VaultStats> = combine(
+        promptDao.observeItems(),
+        queueDao.observePendingCount(),
+        queueDao.observeFailedCount(),
+        folderDao.observeAll(),
+        settings.settings
+    ) { rows, pending, failed, folders, prefs ->
+        val items = rows.map { it.prompt }
+        VaultStats(
+            total = items.size,
+            favorites = items.count { it.isFavorite },
+            synced = items.count { it.syncStatus == SyncStatus.SYNCED.name },
+            pending = pending,
+            failed = failed,
+            folders = folders.size,
+            lastSuccessfulSync = prefs.lastSuccessfulSync
+        )
+    }
+
     suspend fun getStats(): VaultStats {
         val items = promptDao.observeItems().first().map { it.prompt }
         val prefs = settings.settings.first()
@@ -448,13 +528,19 @@ class PromptRepository(
     }
 
     suspend fun queueAllForSync() {
-        if (!shouldQueue()) return
+        // Explicit user request: it works even when automatic backup is switched off.
+        if (!telegram.configured.value) return
         val items = promptDao.observeItems().first().map { it.prompt }
         items.filter { it.syncStatus != SyncStatus.SYNCED.name }.forEach { item ->
+            promptDao.setSyncStatus(
+                item.id,
+                if (item.cloudVersion > 0) SyncStatus.UPDATE_PENDING.name else SyncStatus.PENDING.name
+            )
             enqueueOperation(
                 item.id,
                 if (item.cloudVersion > 0) SyncWorker.CLOUD_UPDATE else SyncWorker.CLOUD_CREATE,
-                item.telegramMessageId
+                item.telegramMessageId,
+                explicit = true
             )
         }
         syncScheduler.enqueueNow(settings.settings.first().wifiOnly)
@@ -464,10 +550,16 @@ class PromptRepository(
 
     suspend fun queueItemForSync(id: String) {
         val item = promptDao.getById(id) ?: return
+        if (!telegram.configured.value) return
+        promptDao.setSyncStatus(
+            id,
+            if (item.cloudVersion > 0) SyncStatus.UPDATE_PENDING.name else SyncStatus.PENDING.name
+        )
         enqueueOperation(
             id,
             if (item.cloudVersion > 0) SyncWorker.CLOUD_UPDATE else SyncWorker.CLOUD_CREATE,
-            item.telegramMessageId
+            item.telegramMessageId,
+            explicit = true
         )
     }
 
@@ -494,11 +586,13 @@ class PromptRepository(
         promptId: String,
         operation: String,
         messageId: Long? = null,
-        forceNewTask: Boolean = false
+        forceNewTask: Boolean = false,
+        explicit: Boolean = false
     ) {
-        if (!shouldQueue() && !forceNewTask) return
-        val active = queueDao.getForPrompt(promptId)
-            .filter { it.status == "PENDING" || it.status == "SYNCING" }
+        if (!explicit && !shouldQueue()) return
+        // A SYNCING task is already being uploaded with an older snapshot. Never rewrite it;
+        // a separate task must represent the newer local version.
+        val active = queueDao.getForPrompt(promptId).filter { it.status == "PENDING" }
         if (active.isNotEmpty() && !forceNewTask) {
             queueDao.update(
                 active.first().copy(

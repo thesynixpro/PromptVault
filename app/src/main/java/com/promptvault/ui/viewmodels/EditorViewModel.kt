@@ -6,6 +6,7 @@ import com.promptvault.AppContainer
 import com.promptvault.data.repository.ItemInput
 import com.promptvault.domain.Category
 import com.promptvault.domain.ContentType
+import com.promptvault.domain.EditorIdentity
 import com.promptvault.domain.Folder
 import com.promptvault.domain.PromptItem
 import kotlinx.coroutines.delay
@@ -15,6 +16,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.ArrayDeque
 
 data class EditorUiState(
@@ -32,6 +35,8 @@ data class EditorUiState(
     val dirty: Boolean = false,
     val draftSaved: Boolean = false,
     val savedItemId: String? = null,
+    val isSaving: Boolean = false,
+    val deleteError: String? = null,
     val error: String? = null,
     val categories: List<Category> = emptyList(),
     val folders: List<Folder> = emptyList(),
@@ -52,10 +57,11 @@ class EditorViewModel(
 ) : ViewModel() {
     private val repository = container.repository
     private val settingsStore = container.settings
-    private val isNew = itemId == "new" || itemId.startsWith("new_")
-    private val draftKey = if (isNew) "new_${initialType.name}" else itemId
+    private val isNew = EditorIdentity.isNew(itemId)
+    private val draftKey = EditorIdentity.draftKey(itemId, initialType)
     private val undoStack = ArrayDeque<String>()
     private val redoStack = ArrayDeque<String>()
+    private val operationMutex = Mutex()
     private var lastSavedSnapshot: String? = null
 
     private val _state = MutableStateFlow(
@@ -98,7 +104,7 @@ class EditorViewModel(
                     tagsRaw = base?.tags?.joinToString(", ").orEmpty(),
                     isFavorite = base?.isFavorite ?: false,
                     dirty = draft != null,
-                    savedItemId = if (!isNew) itemId else null,
+                    draftSaved = draft != null,
                     fontSize = prefs.fontSize,
                     lineSpacing = prefs.lineSpacing,
                     autoSave = prefs.autoSave,
@@ -107,6 +113,7 @@ class EditorViewModel(
                     lineCount = lineCount(base?.content.orEmpty())
                 )
             }
+            lastSavedSnapshot = if (draft != null) snapshot(_state.value) else null
         }
 
         viewModelScope.launch {
@@ -124,13 +131,24 @@ class EditorViewModel(
             while (isActive) {
                 delay(900)
                 val current = _state.value
-                if (!current.loaded || !current.dirty || !current.autoSave) continue
+                if (!current.loaded || !current.dirty || !current.autoSave || current.isSaving) continue
                 val snapshot = snapshot(current)
                 if (snapshot == lastSavedSnapshot) continue
-                runCatching {
-                    repository.saveDraft(current.asInput(), current.draftKey)
-                    lastSavedSnapshot = snapshot
-                    _state.update { it.copy(draftSaved = true) }
+                operationMutex.withLock {
+                    val latest = _state.value
+                    if (!latest.dirty || !latest.autoSave || latest.isSaving) return@withLock
+                    val latestSnapshot = snapshot(latest)
+                    if (latestSnapshot == lastSavedSnapshot) return@withLock
+                    runCatching {
+                        repository.saveDraft(latest.asInput(), latest.draftKey)
+                    }.onSuccess {
+                        lastSavedSnapshot = latestSnapshot
+                        _state.update { it.copy(draftSaved = true) }
+                    }.onFailure { error ->
+                        _state.update {
+                            it.copy(error = error.message ?: "Draft could not be saved automatically.")
+                        }
+                    }
                 }
             }
         }
@@ -203,49 +221,99 @@ class EditorViewModel(
     }
 
     fun save() = viewModelScope.launch {
-        val current = _state.value
-        if (current.title.isBlank()) {
-            _state.update { it.copy(error = "Add a title before saving.") }
-            return@launch
-        }
-        if (current.content.isBlank()) {
-            _state.update { it.copy(error = "Content cannot be empty.") }
-            return@launch
-        }
-        val input = current.asInput()
-        val savedId = if (current.isNew) {
-            repository.createItem(input)
-        } else {
-            repository.updateItem(current.itemId, input)
-            current.itemId
-        }
-        repository.clearDraft(current.draftKey)
-        lastSavedSnapshot = null
-        _state.update {
-            it.copy(
-                dirty = false,
-                draftSaved = false,
-                savedItemId = savedId,
-                error = null
-            )
+        if (_state.value.isSaving) return@launch
+        _state.update { it.copy(isSaving = true, error = null) }
+        try {
+            operationMutex.withLock {
+                val current = _state.value
+                if (current.title.isBlank()) {
+                    _state.update { it.copy(error = "Add a title before saving.") }
+                    return@withLock
+                }
+                if (current.content.isBlank()) {
+                    _state.update { it.copy(error = "Content cannot be empty.") }
+                    return@withLock
+                }
+                val input = current.asInput()
+                val savedId = if (current.isNew) {
+                    repository.createItem(input)
+                } else {
+                    repository.updateItem(current.itemId, input)
+                    current.itemId
+                }
+                val draftFailure = runCatching { repository.clearDraft(current.draftKey) }
+                    .exceptionOrNull()
+                lastSavedSnapshot = null
+                _state.update {
+                    it.copy(
+                        dirty = false,
+                        draftSaved = false,
+                        savedItemId = savedId,
+                        error = draftFailure?.let { error ->
+                            "Saved, but the temporary draft could not be cleared: ${error.message}"
+                        }
+                    )
+                }
+            }
+        } catch (error: Exception) {
+            _state.update {
+                it.copy(error = error.message ?: "The item could not be saved. Your text is still here.")
+            }
+        } finally {
+            _state.update { it.copy(isSaving = false) }
         }
     }
 
-    fun delete() = viewModelScope.launch {
-        val current = _state.value
-        repository.clearDraft(current.draftKey)
-        if (!current.isNew) repository.deleteItem(current.itemId, false)
+    /** Returns true only after the local database deletion has completed. */
+    suspend fun delete(): Boolean {
+        if (_state.value.isSaving) return false
+        _state.update { it.copy(isSaving = true, deleteError = null) }
+        return try {
+            operationMutex.withLock {
+                val current = _state.value
+                if (!current.isNew) repository.deleteItem(current.itemId, false)
+                val draftFailure = runCatching { repository.clearDraft(current.draftKey) }
+                    .exceptionOrNull()
+                if (draftFailure != null) {
+                    _state.update {
+                        it.copy(
+                            deleteError = "Deleted, but the temporary draft could not be cleared: " +
+                                draftFailure.message
+                        )
+                    }
+                }
+                true
+            }
+        } catch (error: Exception) {
+            _state.update {
+                it.copy(deleteError = error.message ?: "The item could not be deleted.")
+            }
+            false
+        } finally {
+            _state.update { it.copy(isSaving = false) }
+        }
     }
 
     fun duplicate() = viewModelScope.launch {
-        val current = _state.value
-        if (!current.isNew) repository.duplicateItem(current.itemId)
+        try {
+            operationMutex.withLock {
+                val current = _state.value
+                if (!current.isNew) repository.duplicateItem(current.itemId)
+            }
+        } catch (error: Exception) {
+            _state.update { it.copy(error = error.message ?: "The item could not be duplicated.") }
+        }
     }
 
-    fun clearError() = _state.update { it.copy(error = null) }
+    fun clearError() = _state.update { it.copy(error = null, deleteError = null) }
+
+    fun consumeSaved() = _state.update { it.copy(savedItemId = null) }
 
     private fun updateState(block: EditorUiState.() -> EditorUiState) {
-        _state.update { block(it) }
+        _state.update { current ->
+            val next = block(current)
+            if (next != current && next.dirty) next.copy(draftSaved = false) else next
+        }
     }
 
     private fun snapshot(state: EditorUiState): String = listOf(

@@ -46,10 +46,10 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run Unit Tests
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon -PpromptVaultVersionCode=${{ github.run_number }} testDebugUnitTest
 
       - name: Build Debug APK
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon -PpromptVaultVersionCode=${{ github.run_number }} assembleDebug
 
       - name: Verify APK
         run: |

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -28,8 +29,15 @@ data class ListUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class ListViewModel(container: AppContainer, initialFilter: ItemFilter) : ViewModel() {
     private val repository = container.repository
+    private val settingsStore = container.settings
     private val sort = MutableStateFlow(SortMode.RECENTLY_MODIFIED)
     private val filter = MutableStateFlow(initialFilter)
+
+    init {
+        viewModelScope.launch {
+            sort.value = settingsStore.settings.first().sortMode
+        }
+    }
 
     private val items = combine(filter, sort) { f, s -> f to s }
         .flatMapLatest { (f, s) -> repository.observeItems(f, s) }

@@ -1,13 +1,10 @@
 package com.promptvault.ui.screens
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.OpenInNew
 
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,13 +13,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -34,8 +33,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.promptvault.domain.ExportRecord
 import com.promptvault.domain.ItemFilter
@@ -43,6 +44,11 @@ import com.promptvault.ui.components.AppTopBar
 import com.promptvault.ui.components.ConfirmDialog
 import com.promptvault.ui.components.EmptyState
 import com.promptvault.ui.components.SectionTitle
+import com.promptvault.ui.components.formatDate
+import com.promptvault.ui.theme.GlassCard
+import com.promptvault.ui.theme.VaultScaffold
+import com.promptvault.ui.theme.VaultShapes
+import com.promptvault.ui.theme.VaultSpacing
 import com.promptvault.ui.viewmodels.DownloadsViewModel
 import com.promptvault.ui.viewmodels.ListViewModel
 import com.promptvault.ui.viewmodels.appViewModel
@@ -55,24 +61,28 @@ fun DownloadsScreen(onBack: () -> Unit) {
     val listState by listViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
-    var pendingExport by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    var pendingTextExport by remember { mutableStateOf<String?>(null) }
+    var pendingJsonRequest by remember { mutableStateOf<JsonExportRequest?>(null) }
     var deleteTarget by remember { mutableStateOf<ExportRecord?>(null) }
 
     val createJson = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        if (uri != null) {
-            if (pendingExport != null) viewModel.exportItem(context, uri, pendingExport!!.first, false)
-            else viewModel.exportAll(context, uri)
-            pendingExport = null
+        val request = pendingJsonRequest
+        if (uri != null && request != null) {
+            when (request) {
+                is JsonExportRequest.All -> viewModel.exportAll(context, uri)
+                is JsonExportRequest.Item -> viewModel.exportItem(context, uri, request.id, false)
+            }
         }
+        pendingJsonRequest = null
     }
     val createText = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
-        val target = pendingExport
-        if (uri != null && target != null) viewModel.exportItem(context, uri, target.first, true)
-        pendingExport = null
+        val target = pendingTextExport
+        if (uri != null && target != null) viewModel.exportItem(context, uri, target, true)
+        pendingTextExport = null
     }
     val importFile = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -85,69 +95,150 @@ fun DownloadsScreen(onBack: () -> Unit) {
         }
     }
 
-    Scaffold(
+    VaultScaffold(
         topBar = { AppTopBar("Downloads & Backup", onBack = onBack) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
         LazyColumn(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(padding),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
         ) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { createJson.launch("promptvault-backup.json") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Export all items as JSON") }
-                    OutlinedButton(
-                        onClick = { importFile.launch(arrayOf("text/plain", "application/json", "application/*", "*/*")) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Import TXT or JSON backup") }
+                Column(
+                    Modifier.padding(horizontal = VaultSpacing.lg, vertical = VaultSpacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(VaultSpacing.sm)
+                ) {
+                    GlassCard(Modifier.fillMaxWidth(), shape = VaultShapes.panel) {
+                        Column(
+                            Modifier.padding(VaultSpacing.lg),
+                            verticalArrangement = Arrangement.spacedBy(VaultSpacing.sm)
+                        ) {
+                            Text(
+                                "Your data, your files",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Export a full JSON backup or individual TXT/JSON files using the system file picker. No network is required.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Button(
+                                onClick = {
+                                    pendingJsonRequest = JsonExportRequest.All
+                                    createJson.launch("promptvault-backup.json")
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Export all items as JSON") }
+                            OutlinedButton(
+                                onClick = {
+                                    importFile.launch(
+                                        arrayOf(
+                                            "text/plain",
+                                            "application/json",
+                                            "application/*",
+                                            "*/*"
+                                        )
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Import TXT or JSON backup") }
+                        }
+                    }
+                    SectionTitle("Export individual items", action = {
+                        Text("${listState.items.size} items")
+                    })
                 }
-                SectionTitle("Export individual items", action = {
-                    Text("${listState.items.size} items")
-                })
             }
             items(listState.items, key = { "item-${it.id}" }) { item ->
-                Card(
+                GlassCard(
                     Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp)
+                        .padding(horizontal = VaultSpacing.lg, vertical = VaultSpacing.xs),
+                    shape = VaultShapes.compact,
+                    shadowElevation = 1.dp
                 ) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Description, null)
-                        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                            Text(item.contentType.name, style = MaterialTheme.typography.labelSmall)
+                    Row(
+                        Modifier.padding(VaultSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.Description, contentDescription = null)
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .padding(horizontal = VaultSpacing.md)
+                        ) {
+                            Text(
+                                item.title.ifBlank { "Untitled" },
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                item.contentType.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         TextButton(onClick = {
-                            pendingExport = item.id to true
-                            createText.launch("${item.title.replace(Regex("[^A-Za-z0-9_-]"), "_")}.txt")
+                            pendingTextExport = item.id
+                            createText.launch(
+                                "${item.title.replace(Regex("[^A-Za-z0-9_-]"), "_")}.txt"
+                            )
                         }) { Text("TXT") }
                         TextButton(onClick = {
-                            pendingExport = item.id to false
-                            createJson.launch("${item.title.replace(Regex("[^A-Za-z0-9_-]"), "_")}.json")
+                            pendingJsonRequest = JsonExportRequest.Item(item.id)
+                            createJson.launch(
+                                "${item.title.replace(Regex("[^A-Za-z0-9_-]"), "_")}.json"
+                            )
                         }) { Text("JSON") }
                     }
                 }
             }
-            item { SectionTitle("Export history") }
+            item {
+                Box(Modifier.padding(horizontal = VaultSpacing.lg)) {
+                    SectionTitle("Export history")
+                }
+            }
             if (state.exports.isEmpty()) {
-                item { EmptyState("No exports yet", "Files you export will be listed here.", Icons.Filled.FileDownload) }
+                item {
+                    Box(Modifier.padding(horizontal = VaultSpacing.lg)) {
+                        EmptyState(
+                            "No exports yet",
+                            "Files you export will be listed here.",
+                            Icons.Filled.FileDownload
+                        )
+                    }
+                }
             }
             items(state.exports, key = { it.id }) { record ->
-                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                GlassCard(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = VaultSpacing.lg, vertical = VaultSpacing.xs),
+                    shape = VaultShapes.compact,
+                    shadowElevation = 1.dp
+                ) {
+                    Row(
+                        Modifier.padding(VaultSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Column(Modifier.weight(1f)) {
                             Text(record.name, style = MaterialTheme.typography.titleMedium)
-                            Text(com.promptvault.ui.components.formatDate(record.createdAt), style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                formatDate(record.createdAt),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         IconButton(onClick = {
                             runCatching {
                                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(android.net.Uri.parse(record.uri), record.mimeType)
+                                    setDataAndType(
+                                        android.net.Uri.parse(record.uri),
+                                        record.mimeType
+                                    )
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
                                 context.startActivity(intent)
@@ -174,4 +265,9 @@ fun DownloadsScreen(onBack: () -> Unit) {
             onDismiss = { deleteTarget = null }
         )
     }
+}
+
+private sealed interface JsonExportRequest {
+    data object All : JsonExportRequest
+    data class Item(val id: String) : JsonExportRequest
 }

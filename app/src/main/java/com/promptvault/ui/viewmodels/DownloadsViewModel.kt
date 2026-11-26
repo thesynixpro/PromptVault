@@ -69,9 +69,9 @@ class DownloadsViewModel(container: AppContainer) : ViewModel() {
     }
 
     fun import(context: Context, uri: Uri) = viewModelScope.launch {
-        persistPermission(context, uri)
-        val name = displayName(context, uri).orEmpty()
         val result = withContext(Dispatchers.IO) {
+            persistPermission(context, uri)
+            val name = displayName(context, uri).orEmpty()
             runCatching {
                 val text = context.contentResolver.openInputStream(uri)?.use { stream ->
                     String(stream.readBytes(), Charsets.UTF_8)

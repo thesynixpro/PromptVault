@@ -13,8 +13,14 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,10 +41,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -47,7 +53,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.promptvault.R
 import com.promptvault.domain.ContentType
+import com.promptvault.domain.EditorIdentity
 import com.promptvault.domain.ItemFilter
+import com.promptvault.ui.theme.GlassSurface
+import com.promptvault.ui.theme.VaultShapes
 import com.promptvault.ui.screens.AboutScreen
 import com.promptvault.ui.screens.CategoriesScreen
 import com.promptvault.ui.screens.DownloadsScreen
@@ -79,6 +88,9 @@ object Screen {
     fun editorRoute(itemId: String, type: ContentType = ContentType.PROMPT): String =
         "editor/$itemId?type=${type.name}"
 
+    fun newEditorRoute(type: ContentType = ContentType.PROMPT): String =
+        editorRoute(EditorIdentity.newItemId(), type)
+
     fun listRoute(filter: ItemFilter): String = "list/${filter.name}"
 
     fun foldersRoute(parentId: String? = null, create: Boolean = false): String =
@@ -91,7 +103,7 @@ object Screen {
         DrawerItem(listRoute(ItemFilter.ALL), "All Prompts", Icons.Filled.AutoAwesome),
         DrawerItem(listRoute(ItemFilter.FAVORITES), "Favorites", Icons.Filled.Favorite),
         DrawerItem(CATEGORIES, "Categories", Icons.Filled.Category),
-        DrawerItem(FOLDERS, "Folders", Icons.Filled.Folder),
+        DrawerItem(foldersRoute(), "Folders", Icons.Filled.Folder),
         DrawerItem(listRoute(ItemFilter.TEXT), "Text Documents", Icons.Filled.Description),
         DrawerItem(listRoute(ItemFilter.CODE), "Code Snippets", Icons.Filled.Code),
         DrawerItem(DOWNLOADS, "Downloads", Icons.Filled.FileDownload),
@@ -124,42 +136,84 @@ fun PromptVaultNavigation() {
         closeDrawer()
     }
 
+    fun navigateDrawer(route: String) {
+        navController.navigate(route) {
+            popUpTo(Screen.HOME) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+        closeDrawer()
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            ModalDrawerSheet(drawerContainerColor = Color.Transparent) {
+                GlassSurface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = VaultShapes.panel,
+                    shadowElevation = 0.dp
                 ) {
-                    androidx.compose.foundation.Image(
-                        painter = painterResource(R.drawable.logo),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp)
-                    )
-                    Spacer(Modifier.size(12.dp))
-                    Text("PromptVault", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
-                }
-                HorizontalDivider()
-                Screen.drawerItems.forEach { item ->
-                    NavigationDrawerItem(
-                        label = { Text(item.label) },
-                        icon = { Icon(item.icon, null) },
-                        selected = selectedRoute == normalizeRoute(item.route),
-                        onClick = { navigate(item.route) }
-                    )
-                }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.History, null, modifier = Modifier.size(18.dp))
-                    Text(" Local-first • Telegram ready", style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
+                    androidx.compose.foundation.layout.Column(Modifier.padding(vertical = 12.dp)) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.foundation.Image(
+                                painter = painterResource(R.drawable.logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(42.dp)
+                            )
+                            Spacer(Modifier.size(12.dp))
+                            Text(
+                                "PromptVault",
+                                style = androidx.compose.material3.MaterialTheme.typography.titleLarge
+                            )
+                        }
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                        Screen.drawerItems.forEach { item ->
+                            NavigationDrawerItem(
+                                label = { Text(item.label) },
+                                icon = { Icon(item.icon, null) },
+                                selected = selectedRoute == normalizeRoute(item.route),
+                                onClick = { navigateDrawer(item.route) },
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 1.dp)
+                            )
+                        }
+                        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                        Row(
+                            Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.History, null, modifier = Modifier.size(18.dp))
+                            Text(
+                                " Local-first • Telegram ready",
+                                style = androidx.compose.material3.MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
                 }
             }
         }
     ) {
-        NavHost(navController = navController, startDestination = Screen.HOME) {
+        NavHost(
+            navController = navController,
+            startDestination = Screen.HOME,
+            enterTransition = {
+                fadeIn(tween(180)) + slideInHorizontally(tween(180)) { it / 10 }
+            },
+            exitTransition = {
+                fadeOut(tween(120)) + slideOutHorizontally(tween(160)) { -it / 12 }
+            },
+            popEnterTransition = {
+                fadeIn(tween(160)) + slideInHorizontally(tween(160)) { -it / 12 }
+            },
+            popExitTransition = {
+                fadeOut(tween(120)) + slideOutHorizontally(tween(160)) { it / 10 }
+            }
+        ) {
             composable(Screen.HOME) {
                 HomeScreen(
                     onOpenDrawer = { scope.launch { drawerState.open() } },
@@ -271,9 +325,9 @@ fun PromptVaultNavigation() {
                 onSelect = { type ->
                     showNewSheet = false
                     when (type) {
-                        NewContentType.PROMPT -> navigate(Screen.editorRoute("new", ContentType.PROMPT))
-                        NewContentType.TEXT -> navigate(Screen.editorRoute("new", ContentType.TEXT))
-                        NewContentType.CODE -> navigate(Screen.editorRoute("new", ContentType.CODE))
+                        NewContentType.PROMPT -> navigate(Screen.newEditorRoute(ContentType.PROMPT))
+                        NewContentType.TEXT -> navigate(Screen.newEditorRoute(ContentType.TEXT))
+                        NewContentType.CODE -> navigate(Screen.newEditorRoute(ContentType.CODE))
                         NewContentType.FOLDER -> navigate(Screen.foldersRoute(create = true))
                     }
                 }
@@ -288,5 +342,3 @@ private fun normalizeRoute(route: String): String = when {
     route.startsWith("folders") -> Screen.FOLDERS
     else -> route
 }
-
-private fun unusedNavControllerReference(controller: NavHostController) = controller

@@ -45,6 +45,9 @@ interface PromptDao {
     @Query("SELECT * FROM prompts WHERE folderId = :folderId")
     suspend fun getByFolder(folderId: String): List<PromptEntity>
 
+    @Query("SELECT * FROM prompts WHERE categoryId = :categoryId")
+    suspend fun getByCategory(categoryId: String): List<PromptEntity>
+
     @Query("SELECT COUNT(*) FROM prompts")
     fun observeCount(): Flow<Int>
 
@@ -65,6 +68,9 @@ interface PromptDao {
 
     @Query("UPDATE prompts SET syncStatus = :status WHERE id = :id")
     suspend fun setSyncStatus(id: String, status: String)
+
+    @Query("UPDATE prompts SET updatedAt = :updatedAt, localVersion = localVersion + 1 WHERE id = :id")
+    suspend fun touch(id: String, updatedAt: Long)
 
     @Query(
         """
@@ -145,8 +151,27 @@ interface SyncQueueDao {
     )
     fun observeAll(): Flow<List<SyncTaskWithTitle>>
 
-    @Query("SELECT * FROM sync_queue ORDER BY createdAt ASC LIMIT :limit")
+    @Query("SELECT * FROM sync_queue WHERE status = 'PENDING' ORDER BY createdAt ASC LIMIT :limit")
     suspend fun getPending(limit: Int = 20): List<SyncQueueEntity>
+
+    @Query("SELECT * FROM sync_queue WHERE id = :id")
+    suspend fun getById(id: String): SyncQueueEntity?
+
+    @Query(
+        """
+        UPDATE sync_queue SET status = 'SYNCING', lastAttempt = :now
+        WHERE id = :id AND status = 'PENDING'
+        """
+    )
+    suspend fun claimPending(id: String, now: Long): Int
+
+    @Query(
+        """
+        UPDATE sync_queue SET status = 'PENDING', errorMessage = NULL
+        WHERE status = 'SYNCING' AND lastAttempt < :cutoff
+        """
+    )
+    suspend fun resetStaleSyncing(cutoff: Long): Int
 
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
     fun observePendingCount(): Flow<Int>
@@ -171,6 +196,9 @@ interface SyncQueueDao {
 
     @Query("DELETE FROM sync_queue WHERE promptId = :promptId")
     suspend fun deleteForPrompt(promptId: String)
+
+    @Query("DELETE FROM sync_queue WHERE promptId = :promptId AND id != :keepTaskId")
+    suspend fun deleteForPromptExcept(promptId: String, keepTaskId: String)
 
     @Query("DELETE FROM sync_queue")
     suspend fun clearHistory()

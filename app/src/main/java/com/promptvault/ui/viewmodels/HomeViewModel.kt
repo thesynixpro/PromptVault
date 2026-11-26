@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -36,7 +37,8 @@ data class HomeUiState(
     val filter: ItemFilter = ItemFilter.RECENT,
     val sort: SortMode = SortMode.RECENTLY_MODIFIED,
     val telegramConnected: Boolean = false,
-    val isRefreshing: Boolean = false
+    val isRefreshing: Boolean = false,
+    val message: String? = null
 )
 
 private data class HomePartial(
@@ -44,17 +46,26 @@ private data class HomePartial(
     val categories: List<Category>,
     val folders: List<Folder>,
     val tasks: List<SyncTask>,
-    val connected: Boolean
+    val connected: Boolean,
+    val stats: HomeStats
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(container: AppContainer) : ViewModel() {
     private val repository = container.repository
     private val settingsStore = container.settings
+    private val telegram = container.telegram
 
     private val filter = MutableStateFlow(ItemFilter.RECENT)
     private val sort = MutableStateFlow(SortMode.RECENTLY_MODIFIED)
     private val isRefreshing = MutableStateFlow(false)
+    private val message = MutableStateFlow<String?>(null)
+
+    init {
+        viewModelScope.launch {
+            sort.value = settingsStore.settings.first().sortMode
+        }
+    }
 
     private val itemsFlow = combine(filter, sort) { f, s -> f to s }
         .flatMapLatest { (f, s) -> repository.observeItems(f, s) }
@@ -66,27 +77,34 @@ class HomeViewModel(container: AppContainer) : ViewModel() {
         repository.observeSyncTasks(),
         container.telegram.configured
     ) { items, categories, folders, tasks, connected ->
-        HomePartial(items, categories, folders, tasks, connected)
+        HomePartial(items, categories, folders, tasks, connected, HomeStats())
     }
 
-    val uiState: StateFlow<HomeUiState> = combine(contentFlow, isRefreshing) { partial, refreshing ->
+    private val fullFlow = combine(contentFlow, repository.observeStats()) { partial, stats ->
+        partial.copy(
+            stats = HomeStats(
+                total = stats.total,
+                favorites = stats.favorites,
+                folders = stats.folders,
+                synced = stats.synced,
+                pending = stats.pending,
+                failed = stats.failed
+            )
+        )
+    }
+
+    val uiState: StateFlow<HomeUiState> = combine(fullFlow, isRefreshing, message) { partial, refreshing, status ->
         HomeUiState(
             items = partial.items,
             categories = partial.categories,
             folders = partial.folders,
             tasks = partial.tasks,
-            stats = HomeStats(
-                total = partial.items.size,
-                favorites = partial.items.count { it.isFavorite },
-                folders = partial.folders.size,
-                synced = partial.items.count { it.syncStatus.name == "SYNCED" },
-                pending = partial.tasks.count { it.status == "PENDING" || it.status == "SYNCING" },
-                failed = partial.tasks.count { it.status == "FAILED" }
-            ),
+            stats = partial.stats,
             filter = filter.value,
             sort = sort.value,
             telegramConnected = partial.connected,
-            isRefreshing = refreshing
+            isRefreshing = refreshing,
+            message = status
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
@@ -100,8 +118,23 @@ class HomeViewModel(container: AppContainer) : ViewModel() {
 
     fun refresh() = viewModelScope.launch {
         isRefreshing.value = true
-        runCatching { repository.queueAllForSync() }
-        isRefreshing.value = false
+        message.value = null
+        try {
+            repository.queueAllForSync()
+            message.value = if (telegram.configured.value) {
+                "Sync requested. Pending items will upload in the background."
+            } else {
+                "Telegram is not connected. Everything is safely stored on this device."
+            }
+        } catch (error: Exception) {
+            message.value = error.message ?: "Sync could not be started. Your local data is unchanged."
+        } finally {
+            isRefreshing.value = false
+        }
+    }
+
+    fun clearMessage() {
+        message.value = null
     }
 
     fun toggleFavorite(id: String) = viewModelScope.launch { repository.toggleFavorite(id) }

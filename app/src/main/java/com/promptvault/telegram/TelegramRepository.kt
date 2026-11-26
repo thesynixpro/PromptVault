@@ -17,6 +17,7 @@ class TelegramRepository(
     val channelId: String? get() = credentials.getChannelId()
     val token: String? get() = credentials.getToken()
     val maskedToken: String get() = credentials.maskedToken()
+    val secureStorageAvailable: Boolean get() = credentials.secureStorageAvailable
 
     suspend fun testConnection(token: String): AppResult<TelegramUser> = api.getMe(token.trim())
 
@@ -36,7 +37,8 @@ class TelegramRepository(
         val chat = when (val result = api.getChat(cleanToken, cleanChannel)) {
             is AppResult.Success -> result.value
             is AppResult.Failure -> return AppResult.Failure(
-                "Bot cannot access that channel. Add it as an administrator first."
+                "Bot cannot access that channel: ${result.message}",
+                result.retryAfterSeconds
             )
         }
         val member = when (
@@ -44,7 +46,8 @@ class TelegramRepository(
         ) {
             is AppResult.Success -> result.value
             is AppResult.Failure -> return AppResult.Failure(
-                "Bot is not a member/administrator of the channel."
+                "Bot membership could not be verified: ${result.message}",
+                result.retryAfterSeconds
             )
         }
         val admin = member.status == "administrator" || member.status == "creator"
@@ -66,9 +69,19 @@ class TelegramRepository(
     }
 
     suspend fun saveConfiguration(token: String, channelId: String): AppResult<ChannelVerification> {
+        if (!credentials.secureStorageAvailable) {
+            return AppResult.Failure(
+                "Secure credential storage is unavailable. Enable device encryption or unlock the keystore, then try again."
+            )
+        }
         val verification = verifyChannel(token, channelId)
         if (verification is AppResult.Success) {
-            credentials.saveTelegram(token, channelId)
+            val saved = runCatching { credentials.saveTelegram(token, channelId) }
+            if (saved.isFailure) {
+                return AppResult.Failure(
+                    saved.exceptionOrNull()?.message ?: "Credentials could not be stored securely."
+                )
+            }
             _configured.value = true
         }
         return verification

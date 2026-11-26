@@ -19,22 +19,40 @@ data class TelegramUiState(
     val savedChannel: String = "",
     val status: String = "",
     val isBusy: Boolean = false,
-    val verification: ChannelVerification? = null
+    val verification: ChannelVerification? = null,
+    val secureStorageAvailable: Boolean = true
 )
 
 class TelegramViewModel(container: AppContainer) : ViewModel() {
     private val telegram = container.telegram
-    private val syncScheduler = container.syncScheduler
+    private val repository = container.repository
 
     private val _state = MutableStateFlow(
         TelegramUiState(
             configured = telegram.configured.value,
             maskedToken = telegram.maskedToken,
             savedChannel = telegram.channelId.orEmpty(),
-            channelId = telegram.channelId.orEmpty()
+            channelId = telegram.channelId.orEmpty(),
+            secureStorageAvailable = telegram.secureStorageAvailable
         )
     )
     val state: StateFlow<TelegramUiState> = _state.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            telegram.configured.collect { configured ->
+                _state.update {
+                    it.copy(
+                        configured = configured,
+                        maskedToken = telegram.maskedToken,
+                        savedChannel = telegram.channelId.orEmpty(),
+                        channelId = it.channelId.ifBlank { telegram.channelId.orEmpty() },
+                        secureStorageAvailable = telegram.secureStorageAvailable
+                    )
+                }
+            }
+        }
+    }
 
     fun onTokenChange(value: String) = _state.update { it.copy(token = value, status = "") }
 
@@ -45,7 +63,8 @@ class TelegramViewModel(container: AppContainer) : ViewModel() {
             configured = telegram.configured.value,
             maskedToken = telegram.maskedToken,
             savedChannel = telegram.channelId.orEmpty(),
-            channelId = it.channelId.ifBlank { telegram.channelId.orEmpty() }
+            channelId = it.channelId.ifBlank { telegram.channelId.orEmpty() },
+            secureStorageAvailable = telegram.secureStorageAvailable
         )
     }
 
@@ -79,10 +98,29 @@ class TelegramViewModel(container: AppContainer) : ViewModel() {
         }
     }
 
-    fun saveConfiguration(wifiOnly: Boolean = false) = viewModelScope.launch {
+    fun saveConfiguration() = viewModelScope.launch {
         val current = _state.value
+        if (!current.secureStorageAvailable) {
+            _state.update {
+                it.copy(
+                    status = "Secure credential storage is unavailable. Telegram was not configured.",
+                    isBusy = false
+                )
+            }
+            return@launch
+        }
         _state.update { it.copy(isBusy = true, status = "Saving configuration…") }
         val result = telegram.saveConfiguration(current.token, current.channelId)
+        var queueWarning: String? = null
+        if (result is AppResult.Success) {
+            // Existing local items were created before Telegram was configured, so they have no
+            // queued work yet. Queue them now before starting the upload worker.
+            queueWarning = runCatching { repository.queueAllForSync() }
+                .exceptionOrNull()
+                ?.let { error ->
+                    "Connected, but queued backups could not be started: ${error.message}"
+                }
+        }
         _state.update {
             it.copy(
                 isBusy = false,
@@ -91,12 +129,12 @@ class TelegramViewModel(container: AppContainer) : ViewModel() {
                 savedChannel = telegram.channelId.orEmpty(),
                 verification = (result as? AppResult.Success)?.value,
                 status = when (result) {
-                    is AppResult.Success -> "Configuration saved. Telegram backup is enabled."
+                    is AppResult.Success -> queueWarning
+                        ?: "Configuration saved. Telegram backup is enabled."
                     is AppResult.Failure -> result.message
                 }
             )
         }
-        if (result is AppResult.Success) syncScheduler.enqueueSoon(wifiOnly)
     }
 
     fun disconnect() {
