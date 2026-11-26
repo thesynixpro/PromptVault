@@ -77,8 +77,22 @@ class DomainEdgeCasesTest {
     @Test
     fun sortingIsStableForEqualTimestamps() {
         val tied = listOf(
-            PromptItem(id = "z", title = "Zulu", createdAt = 5L, updatedAt = 5L),
-            PromptItem(id = "a", title = "Alpha", createdAt = 5L, updatedAt = 5L)
+            PromptItem(
+                id = "z",
+                title = "Zulu",
+                content = "z",
+                contentType = ContentType.TEXT,
+                createdAt = 5L,
+                updatedAt = 5L
+            ),
+            PromptItem(
+                id = "a",
+                title = "Alpha",
+                content = "a",
+                contentType = ContentType.TEXT,
+                createdAt = 5L,
+                updatedAt = 5L
+            )
         )
         assertEquals(listOf("z", "a"), SearchEngine.sort(tied, SortMode.NEWEST).map { it.id })
         assertEquals(listOf("a", "z"), SearchEngine.sort(tied, SortMode.ALPHABETICAL).map { it.id })
