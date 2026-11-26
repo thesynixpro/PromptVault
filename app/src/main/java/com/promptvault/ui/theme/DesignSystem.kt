@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -151,6 +154,7 @@ fun GlassCard(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GlassTopBar(
     title: String,
@@ -188,13 +192,13 @@ fun GlassTopBar(
                 when {
                     onBack != null -> androidx.compose.material3.IconButton(onClick = onBack) {
                         Icon(
-                            navigationIcon ?: androidx.compose.material.icons.Icons.Filled.ArrowBack,
+                            navigationIcon ?: Icons.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
                     onMenu != null -> androidx.compose.material3.IconButton(onClick = onMenu) {
                         Icon(
-                            navigationIcon ?: androidx.compose.material.icons.Icons.Filled.Menu,
+                            navigationIcon ?: Icons.Filled.Menu,
                             contentDescription = "Open navigation"
                         )
                     }
