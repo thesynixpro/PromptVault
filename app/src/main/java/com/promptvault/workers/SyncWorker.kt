@@ -40,9 +40,13 @@ class SyncWorker(
         val queueDao = container.database.syncQueueDao()
         // A task claimed just before a process death would otherwise stay SYNCING forever.
         queueDao.resetStaleSyncing(System.currentTimeMillis() - STALE_SYNCING_TIMEOUT_MS)
-        val pending = queueDao.getPending(MAX_TASKS_PER_RUN)
-        // When automatic backup is off, an explicit "delete from cloud" request must still run.
-        val tasks = if (settings.autoBackup) pending else pending.filter { it.operation == CLOUD_DELETE }
+        // When automatic backup is off, only explicit cloud deletes are eligible. Query them
+        // directly so they cannot be starved by non-delete rows in the limited PENDING window.
+        val tasks = if (settings.autoBackup) {
+            queueDao.getPending(MAX_TASKS_PER_RUN)
+        } else {
+            queueDao.getPendingDeletes(MAX_TASKS_PER_RUN)
+        }
         val hasMoreWork = tasks.size >= MAX_TASKS_PER_RUN
         var shouldRetry = false
         for (task in tasks) {
@@ -194,7 +198,7 @@ class SyncWorker(
                             cloudVersion = current.localVersion
                         )
                     }
-                    if (task.operation != CLOUD_DELETE) {
+                    if (task.operation != CLOUD_DELETE && versionMatches) {
                         container.settings.setLastSuccessfulSync(System.currentTimeMillis())
                     }
                     false
@@ -305,6 +309,8 @@ class SyncWorker(
         const val CLOUD_DELETE = "CLOUD_DELETE"
         private const val MAX_RETRIES = 5
         private const val MAX_TASKS_PER_RUN = 10
-        private const val STALE_SYNCING_TIMEOUT_MS = 2L * 60 * 1000
+        // Longer than the worst-case Telegram call chain (send + cleanup retries) so a live
+        // upload is never reclaimed by another worker instance.
+        private const val STALE_SYNCING_TIMEOUT_MS = 10L * 60 * 1000
     }
 }

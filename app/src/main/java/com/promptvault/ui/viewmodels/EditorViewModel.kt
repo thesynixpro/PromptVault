@@ -246,7 +246,8 @@ class EditorViewModel(
                 lastSavedSnapshot = null
                 _state.update {
                     it.copy(
-                        dirty = false,
+                        // Keep the draft dirty so autosave rewrites any stale draft left behind.
+                        dirty = draftFailure != null,
                         draftSaved = false,
                         savedItemId = savedId,
                         error = draftFailure?.let { error ->

@@ -62,6 +62,11 @@ class CredentialStore(context: Context) {
 
     /** Moves credentials from old plaintext storage into Keystore-backed storage exactly once. */
     private fun migrateLegacyCredentials(secure: SharedPreferences) {
+        if (!secure.getString(KEY_TOKEN, null).isNullOrBlank() ||
+            !secure.getString(KEY_CHANNEL, null).isNullOrBlank()
+        ) {
+            return
+        }
         val token = legacyPrefs.getString(KEY_TOKEN, null)?.takeIf { it.isNotBlank() } ?: return
         val channel = legacyPrefs.getString(KEY_CHANNEL, null)?.takeIf { it.isNotBlank() } ?: return
         secure.edit()

@@ -386,7 +386,9 @@ fun EditorScreen(
                 scope.launch {
                     val deleted = viewModel.delete()
                     if (deleted) {
-                        snackbarHostState.showSnackbar("Item deleted")
+                        snackbarHostState.showSnackbar(
+                            viewModel.state.value.deleteError ?: "Item deleted"
+                        )
                         onDeleted()
                     } else {
                         snackbarHostState.showSnackbar(

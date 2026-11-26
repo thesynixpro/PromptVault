@@ -154,6 +154,14 @@ interface SyncQueueDao {
     @Query("SELECT * FROM sync_queue WHERE status = 'PENDING' ORDER BY createdAt ASC LIMIT :limit")
     suspend fun getPending(limit: Int = 20): List<SyncQueueEntity>
 
+    @Query(
+        """
+        SELECT * FROM sync_queue WHERE status = 'PENDING'
+        AND operation = 'CLOUD_DELETE' ORDER BY createdAt ASC LIMIT :limit
+        """
+    )
+    suspend fun getPendingDeletes(limit: Int = 20): List<SyncQueueEntity>
+
     @Query("SELECT * FROM sync_queue WHERE id = :id")
     suspend fun getById(id: String): SyncQueueEntity?
 
